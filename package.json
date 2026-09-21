@@ -1,0 +1,33 @@
+{
+  "name": "sgcommerce",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production-oriented reference ecommerce platform for SupGent integration and live testing",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter storefront --filter admin --filter api run dev",
+    "dev:store": "pnpm --filter storefront dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:api": "pnpm --filter api dev",
+    "build": "pnpm --filter storefront build && pnpm --filter admin build && pnpm --filter api build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:restart": "docker compose down && docker compose up -d",
+    "infra:status": "docker compose ps",
+    "infra:logs": "docker compose logs -f",
+    "workspace:list": "pnpm list -r --depth -1",
+    "ports:clear": "bash scripts/clear-dev-ports.sh",
+    "dev:fresh": "bash scripts/dev-supervisor.sh",
+    "verify": "pnpm typecheck && pnpm --filter api build",
+    "dev:check": "bash scripts/check-dev.sh",
+    "dev:logs": "tail -f .runtime/storefront.log .runtime/admin.log .runtime/api.log"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

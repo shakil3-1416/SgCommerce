@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+:root {
+  --sg-white: #ffffff;
+  --sg-purple-950: #1f1235;
+  --sg-purple-900: #29164a;
+  --sg-purple-800: #38205f;
+  --sg-purple-100: #f2edf8;
+  --sg-purple-50: #faf8fc;
+  --sg-border: #e8e2ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #faf8fc;
+  color: #1f1235;
+}

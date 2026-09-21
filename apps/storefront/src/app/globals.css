@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --sg-white: #ffffff;
+  --sg-purple-950: #1f1235;
+  --sg-purple-900: #29164a;
+  --sg-purple-800: #38205f;
+  --sg-purple-700: #4c2a7d;
+  --sg-purple-100: #f2edf8;
+  --sg-purple-50: #faf8fc;
+  --sg-border: #e8e2ef;
+  --sg-muted: #6f6679;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--sg-white);
+}
+
+body {
+  margin: 0;
+  background: var(--sg-white);
+  color: var(--sg-purple-950);
+}
+
+::selection {
+  background: var(--sg-purple-900);
+  color: white;
+}
+
+a,
+button {
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}

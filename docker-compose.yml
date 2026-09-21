@@ -1,0 +1,73 @@
+services:
+
+  mongodb:
+    image: mongo:7
+    container_name: sgcommerce-mongodb
+
+    restart: unless-stopped
+
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - sgcommerce_mongodb:/data/db
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand('ping').ok"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - sgcommerce
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: sgcommerce-redis
+
+    restart: unless-stopped
+
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes"
+      ]
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - sgcommerce_redis:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - sgcommerce
+
+
+volumes:
+  sgcommerce_mongodb:
+  sgcommerce_redis:
+
+
+networks:
+  sgcommerce:
+    driver: bridge

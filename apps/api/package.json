@@ -1,0 +1,37 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SgCommerce commerce API",
+  "scripts": {
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "build": "nest build",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "seed": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed.ts",
+    "seed:admin": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed-admin.ts",
+    "cleanup:test-data": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/cleanup-test-data.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.3",
+    "@nestjs/config": "^12.0.0",
+    "@nestjs/core": "^12.0.3",
+    "@nestjs/mongoose": "^12.0.0",
+    "@nestjs/platform-express": "^12.0.3",
+    "@sgcommerce/shared": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "ioredis": "^5.7.0",
+    "mongoose": "^8.18.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.3",
+    "@types/node": "^24.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0"
+  }
+}
