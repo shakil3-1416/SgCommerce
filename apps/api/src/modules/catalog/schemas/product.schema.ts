@@ -9,7 +9,8 @@ import {
   Types,
 } from 'mongoose';
 
-export type ProductDocument = HydratedDocument<Product>;
+export type ProductDocument =
+  HydratedDocument<Product>;
 
 @Schema({
   _id: false,
@@ -33,7 +34,10 @@ export class ProductVariant {
     type: Object,
     default: {},
   })
-  attributes!: Record<string, string>;
+  attributes!: Record<
+    string,
+    string
+  >;
 
   @Prop({
     required: true,
@@ -53,7 +57,9 @@ export class ProductVariant {
 }
 
 export const ProductVariantSchema =
-  SchemaFactory.createForClass(ProductVariant);
+  SchemaFactory.createForClass(
+    ProductVariant,
+  );
 
 @Schema({
   timestamps: true,
@@ -117,10 +123,23 @@ export class Product {
     index: true,
   })
   active!: boolean;
+
+  @Prop({
+    trim: true,
+    index: true,
+  })
+  catalogSource?: string;
+
+  @Prop({
+    trim: true,
+  })
+  externalId?: string;
 }
 
 export const ProductSchema =
-  SchemaFactory.createForClass(Product);
+  SchemaFactory.createForClass(
+    Product,
+  );
 
 ProductSchema.index({
   name: 'text',
@@ -135,5 +154,34 @@ ProductSchema.index(
   {
     unique: true,
     sparse: true,
+  },
+);
+
+ProductSchema.index({
+  active: 1,
+  category: 1,
+  brand: 1,
+});
+
+ProductSchema.index({
+  active: 1,
+  'variants.price': 1,
+});
+
+ProductSchema.index(
+  {
+    catalogSource: 1,
+    externalId: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      catalogSource: {
+        $type: 'string',
+      },
+      externalId: {
+        $type: 'string',
+      },
+    },
   },
 );

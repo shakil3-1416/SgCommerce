@@ -1,12 +1,13 @@
 import {
-  Type,
   Transform,
+  Type,
 } from 'class-transformer';
 
 import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsObject,
   IsOptional,
@@ -68,13 +69,20 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({
+    each: true,
+  })
   images?: string[];
 
   @IsArray()
   @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => ProductVariantDto)
+  @ValidateNested({
+    each: true,
+  })
+  @Type(
+    () =>
+      ProductVariantDto,
+  )
   variants!: ProductVariantDto[];
 
   @IsOptional()
@@ -107,14 +115,21 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsString({
+    each: true,
+  })
   images?: string[];
 
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => ProductVariantDto)
+  @ValidateNested({
+    each: true,
+  })
+  @Type(
+    () =>
+      ProductVariantDto,
+  )
   variants?: ProductVariantDto[];
 
   @IsOptional()
@@ -132,10 +147,53 @@ export class ProductQueryDto {
   category?: string;
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === undefined) return undefined;
-    return value === true || value === 'true';
-  })
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  maxPrice?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn([
+    'newest',
+    'price_asc',
+    'price_desc',
+    'name_asc',
+  ])
+  sort?:
+    | 'newest'
+    | 'price_asc'
+    | 'price_desc'
+    | 'name_asc';
+
+  @IsOptional()
+  @Transform(
+    ({
+      value,
+    }) => {
+      if (
+        value ===
+        undefined
+      ) {
+        return undefined;
+      }
+
+      return (
+        value === true ||
+        value === 'true'
+      );
+    },
+  )
   @IsBoolean()
   active?: boolean;
 
@@ -149,5 +207,5 @@ export class ProductQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit = 20;
+  limit = 24;
 }

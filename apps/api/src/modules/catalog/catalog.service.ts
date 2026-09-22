@@ -329,57 +329,172 @@ export class CatalogService {
   async listProducts(
     query: ProductQueryDto,
   ) {
-    const page = query.page ?? 1;
+    const page =
+      query.page ?? 1;
 
     const limit =
-      Math.min(query.limit ?? 20, 100);
+      Math.min(
+        query.limit ?? 24,
+        100,
+      );
 
-    const filter: FilterQuery<ProductDocument> =
-      {};
-
-    if (query.active !== undefined) {
-      filter.active = query.active;
+    if (
+      query.minPrice !== undefined &&
+      query.maxPrice !== undefined &&
+      query.minPrice >
+        query.maxPrice
+    ) {
+      throw new BadRequestException(
+        'minPrice cannot be greater than maxPrice',
+      );
     }
 
-    if (query.category) {
+    const filter:
+      FilterQuery<ProductDocument> =
+      {};
+
+    if (
+      query.active !==
+      undefined
+    ) {
+      filter.active =
+        query.active;
+    }
+
+    if (
+      query.category
+    ) {
       const category =
         await this.resolveCategory(
           query.category,
         );
 
-      filter.category = category._id;
+      filter.category =
+        category._id;
     }
 
-    if (query.q?.trim()) {
+    if (
+      query.brand?.trim()
+    ) {
+      const escapedBrand =
+        query.brand
+          .trim()
+          .replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&',
+          );
+
+      filter.brand = {
+        $regex:
+          `^${escapedBrand}$`,
+        $options:
+          'i',
+      };
+    }
+
+    if (
+      query.minPrice !==
+        undefined ||
+      query.maxPrice !==
+        undefined
+    ) {
+      const priceFilter: {
+        $gte?: number;
+        $lte?: number;
+      } = {};
+
+      if (
+        query.minPrice !==
+        undefined
+      ) {
+        priceFilter.$gte =
+          query.minPrice;
+      }
+
+      if (
+        query.maxPrice !==
+        undefined
+      ) {
+        priceFilter.$lte =
+          query.maxPrice;
+      }
+
+      filter[
+        'variants.price'
+      ] =
+        priceFilter;
+    }
+
+    if (
+      query.q?.trim()
+    ) {
       filter.$or = [
         {
           name: {
-            $regex: query.q.trim(),
-            $options: 'i',
+            $regex:
+              query.q.trim(),
+            $options:
+              'i',
           },
         },
         {
           description: {
-            $regex: query.q.trim(),
-            $options: 'i',
+            $regex:
+              query.q.trim(),
+            $options:
+              'i',
           },
         },
         {
           brand: {
-            $regex: query.q.trim(),
-            $options: 'i',
+            $regex:
+              query.q.trim(),
+            $options:
+              'i',
           },
         },
         {
           'variants.sku': {
-            $regex: query.q.trim(),
-            $options: 'i',
+            $regex:
+              query.q.trim(),
+            $options:
+              'i',
           },
         },
       ];
     }
 
-    const [items, total] =
+    const sort:
+      Record<
+        string,
+        1 | -1
+      > =
+      query.sort ===
+      'price_asc'
+        ? {
+            'variants.price':
+              1,
+          }
+        : query.sort ===
+            'price_desc'
+          ? {
+              'variants.price':
+                -1,
+            }
+          : query.sort ===
+              'name_asc'
+            ? {
+                name: 1,
+              }
+            : {
+                createdAt:
+                  -1,
+              };
+
+    const [
+      items,
+      total,
+    ] =
       await Promise.all([
         this.productModel
           .find(filter)
@@ -387,16 +502,18 @@ export class CatalogService {
             'category',
             'name slug active',
           )
-          .sort({
-            createdAt: -1,
-          })
-          .skip((page - 1) * limit)
+          .sort(sort)
+          .skip(
+            (page - 1) *
+              limit,
+          )
           .limit(limit)
           .lean(),
 
-        this.productModel.countDocuments(
-          filter,
-        ),
+        this.productModel
+          .countDocuments(
+            filter,
+          ),
       ]);
 
     return {
@@ -405,9 +522,11 @@ export class CatalogService {
         page,
         limit,
         total,
-        pages: Math.ceil(
-          total / limit,
-        ),
+        pages:
+          Math.ceil(
+            total /
+              limit,
+          ),
       },
     };
   }

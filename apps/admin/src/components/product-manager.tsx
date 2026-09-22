@@ -78,8 +78,10 @@ export function ProductManager() {
   const [category, setCategory] =
     useState('');
 
-  const [image, setImage] =
-    useState('');
+  const [images, setImages] =
+    useState<string[]>([
+      '',
+    ]);
 
   const [active, setActive] =
     useState(true);
@@ -93,42 +95,21 @@ export function ProductManager() {
     useState('');
 
   async function load() {
-    const [
-      productsResponse,
-      categoriesResponse,
-    ] =
-      await Promise.all([
-        fetch(
-          `/api/backend/products?limit=100`,
-          {
-            cache: 'no-store',
-          },
-        ),
+    const categoriesResponse =
+      await fetch(
+        `/api/backend/categories`,
+        {
+          cache: 'no-store',
+        },
+      );
 
-        fetch(
-          `/api/backend/categories`,
-          {
-            cache: 'no-store',
-          },
-        ),
-      ]);
-
-    if (
-      !productsResponse.ok ||
-      !categoriesResponse.ok
-    ) {
+    if (!categoriesResponse.ok) {
       setMessage(
         'Unable to load catalog',
       );
+
       return;
     }
-
-    const productBody =
-      await productsResponse.json();
-
-    setProducts(
-      productBody.items,
-    );
 
     const categoryBody =
       await categoriesResponse.json();
@@ -145,6 +126,49 @@ export function ProductManager() {
         categoryBody[0].slug,
       );
     }
+
+    const collected:
+      Product[] = [];
+
+    let page = 1;
+    let pages = 1;
+
+    do {
+      const productsResponse =
+        await fetch(
+          `/api/backend/products?active=true&page=${page}&limit=100`,
+          {
+            cache: 'no-store',
+          },
+        );
+
+      if (!productsResponse.ok) {
+        setMessage(
+          'Unable to load catalog',
+        );
+
+        return;
+      }
+
+      const productBody =
+        await productsResponse.json();
+
+      collected.push(
+        ...productBody.items,
+      );
+
+      pages =
+        productBody.pagination?.pages ??
+        1;
+
+      page += 1;
+    } while (
+      page <= pages
+    );
+
+    setProducts(
+      collected,
+    );
   }
 
   useEffect(() => {
@@ -156,7 +180,9 @@ export function ProductManager() {
     setName('');
     setBrand('');
     setDescription('');
-    setImage('');
+    setImages([
+      '',
+    ]);
     setActive(true);
     setVariants([
       emptyVariant(),
@@ -191,9 +217,12 @@ export function ProductManager() {
         '',
     );
 
-    setImage(
-      product.images?.[0] ??
-        '',
+    setImages(
+      product.images?.length
+        ? product.images
+        : [
+            '',
+          ],
     );
 
     setActive(
@@ -283,6 +312,60 @@ export function ProductManager() {
     );
   }
 
+  function updateImage(
+    index: number,
+    value: string,
+  ) {
+    setImages(
+      (current) =>
+        current.map(
+          (
+            image,
+            currentIndex,
+          ) =>
+            currentIndex ===
+            index
+              ? value
+              : image,
+        ),
+    );
+  }
+
+  function addImage() {
+    setImages(
+      (current) =>
+        current.length >= 8
+          ? current
+          : [
+              ...current,
+              '',
+            ],
+    );
+  }
+
+  function removeImage(
+    index: number,
+  ) {
+    setImages(
+      (current) => {
+        const next =
+          current.filter(
+            (_, i) =>
+              i !== index,
+          );
+
+        return (
+          next.length >
+          0
+            ? next
+            : [
+                '',
+              ]
+        );
+      },
+    );
+  }
+
   async function submit(
     event:
       FormEvent<HTMLFormElement>,
@@ -297,11 +380,18 @@ export function ProductManager() {
       category,
       brand,
       images:
-        image.trim()
-          ? [
-              image.trim(),
-            ]
-          : [],
+        Array.from(
+          new Set(
+            images
+              .map(
+                (value) =>
+                  value.trim(),
+              )
+              .filter(
+                Boolean,
+              ),
+          ),
+        ),
 
       active,
 
@@ -504,22 +594,97 @@ export function ProductManager() {
             </select>
           </label>
 
-          <label>
-            <span className="text-sm font-semibold">
-              Image URL
-            </span>
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-sm font-semibold">
+                  Product images
+                </span>
 
-            <input
-              value={image}
-              onChange={(event) =>
-                setImage(
-                  event.target.value,
-                )
-              }
-              placeholder="https://..."
-              className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
-            />
-          </label>
+                <p className="mt-1 text-xs text-[#6f6679]">
+                  Add up to 8 HTTPS image URLs. The first image is used as the catalog cover.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addImage}
+                disabled={
+                  images.length >=
+                  8
+                }
+                className="rounded-lg bg-[#f2edf8] px-3 py-2 text-sm font-semibold text-[#38205f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                + Add image
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {images.map(
+                (
+                  value,
+                  index,
+                ) => (
+                  <div
+                    key={index}
+                    className="rounded-2xl border border-[#e8e2ef] p-3"
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={
+                          value
+                        }
+                        onChange={(event) =>
+                          updateImage(
+                            index,
+                            event.target.value,
+                          )
+                        }
+                        placeholder="https://..."
+                        className="min-w-0 flex-1 rounded-xl border border-[#e8e2ef] px-4 py-3"
+                      />
+
+                      {images.length >
+                        1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeImage(
+                              index,
+                            )
+                          }
+                          className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {value.trim() && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-[#e8e2ef] bg-[#f2edf8]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={
+                            value.trim()
+                          }
+                          alt={`Product preview ${index + 1}`}
+                          className="h-40 w-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {index ===
+                      0 && (
+                      <p className="mt-2 text-xs font-semibold text-[#38205f]">
+                        Catalog cover image
+                      </p>
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
 
           <label>
             <span className="text-sm font-semibold">

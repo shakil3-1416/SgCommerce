@@ -11,7 +11,9 @@
     "lint": "tsc --noEmit",
     "seed": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed.ts",
     "seed:admin": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed-admin.ts",
-    "cleanup:test-data": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/cleanup-test-data.ts"
+    "cleanup:test-data": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/cleanup-test-data.ts",
+    "seed:catalog": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/import-demo-catalog.ts",
+    "seed:catalog-loadtest": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed-catalog-loadtest.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.3",
