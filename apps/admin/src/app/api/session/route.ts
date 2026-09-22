@@ -66,8 +66,13 @@ export async function POST(
       sameSite: 'lax',
       secure:
         process.env
-          .NODE_ENV ===
-        'production',
+          .ADMIN_COOKIE_SECURE
+          ? process.env
+              .ADMIN_COOKIE_SECURE ===
+            'true'
+          : process.env
+              .NODE_ENV ===
+            'production',
       path: '/',
       maxAge:
         60 * 60 * 8,

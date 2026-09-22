@@ -5,14 +5,7 @@ import {
   useState,
 } from 'react';
 
-import {
-  useRouter,
-} from 'next/navigation';
-
 export default function AdminLoginPage() {
-  const router =
-    useRouter();
-
   const [
     error,
     setError,
@@ -69,8 +62,7 @@ export default function AdminLoginPage() {
       return;
     }
 
-    router.push('/');
-    router.refresh();
+    window.location.assign('/');
   }
 
   return (

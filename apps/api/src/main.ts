@@ -13,11 +13,17 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix(prefix);
 
+  const allowedOrigins =
+    (
+      process.env.CORS_ALLOWED_ORIGINS ??
+      'http://localhost:3100,http://localhost:3101'
+    )
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
   app.enableCors({
-    origin: [
-      process.env.STOREFRONT_URL ?? 'http://localhost:3000',
-      process.env.ADMIN_URL ?? 'http://localhost:3001',
-    ],
+    origin: allowedOrigins,
     credentials: true,
   });
 
