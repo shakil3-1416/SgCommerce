@@ -497,3 +497,169 @@ test(
     });
   },
 );
+
+
+test(
+  'signed-in customer does not need order lookup forms',
+  async ({
+    page,
+  }) => {
+    const stamp =
+      Date.now();
+
+    const email =
+      `browser-orders-${stamp}@example.com`;
+
+    const phone =
+      `017${String(
+        stamp,
+      ).slice(-8)}`;
+
+    const registration =
+      await page.request.post(
+        'http://localhost:4000/api/v1/auth/register',
+        {
+          data: {
+            name:
+              'Browser Orders Customer',
+
+            email,
+
+            phone,
+
+            password:
+              'Browser123!',
+          },
+        },
+      );
+
+    expect(
+      registration.ok(),
+    ).toBeTruthy();
+
+    const session =
+      await registration.json();
+
+    expect(
+      session.token,
+    ).toBeTruthy();
+
+    await page.addInitScript(
+      (
+        token,
+      ) => {
+        window.localStorage.setItem(
+          'sgcommerce-customer-token',
+          token,
+        );
+      },
+      session.token,
+    );
+
+    await page.goto(
+      'http://localhost:3100/orders',
+    );
+
+    await expect(
+      page.getByRole(
+        'heading',
+        {
+          name:
+            'My orders',
+        },
+      ),
+    ).toBeVisible();
+
+    await expect(
+      page.getByText(
+        'No orders yet',
+      ),
+    ).toBeVisible();
+
+    expect(
+      await page
+        .locator(
+          'input[name="orderNumber"]',
+        )
+        .count(),
+    ).toBe(
+      0,
+    );
+
+    expect(
+      await page
+        .locator(
+          'input[name="phone"]',
+        )
+        .count(),
+    ).toBe(
+      0,
+    );
+
+    await page.goto(
+      'http://localhost:3100/returns',
+    );
+
+    await expect(
+      page.getByRole(
+        'heading',
+        {
+          name:
+            'Returns',
+        },
+      ),
+    ).toBeVisible();
+
+    await expect(
+      page.getByText(
+        'No delivered orders ready for return',
+      ),
+    ).toBeVisible();
+
+    expect(
+      await page
+        .locator(
+          'input[name="orderNumber"]',
+        )
+        .count(),
+    ).toBe(
+      0,
+    );
+
+    expect(
+      await page
+        .locator(
+          'input[name="phone"]',
+        )
+        .count(),
+    ).toBe(
+      0,
+    );
+
+    const token =
+      session.token;
+
+    const mine =
+      await page.request.get(
+        'http://localhost:4000/api/v1/returns/me',
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        },
+      );
+
+    expect(
+      mine.status(),
+    ).toBe(
+      200,
+    );
+
+    expect(
+      await mine.json(),
+    ).toEqual(
+      [],
+    );
+  },
+);

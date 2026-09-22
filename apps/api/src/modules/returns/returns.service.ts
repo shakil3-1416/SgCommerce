@@ -313,6 +313,47 @@ export class ReturnsService {
     }
   }
 
+  async listForCustomer(
+    customerId: string,
+  ) {
+    const orders =
+      await this.orderModel
+        .find({
+          customerId,
+        })
+        .select({
+          orderNumber: 1,
+        })
+        .lean();
+
+    const orderNumbers =
+      orders.map(
+        (
+          order,
+        ) =>
+          order.orderNumber,
+      );
+
+    if (
+      orderNumbers.length ===
+      0
+    ) {
+      return [];
+    }
+
+    return this.returnModel
+      .find({
+        orderNumber: {
+          $in:
+            orderNumbers,
+        },
+      })
+      .sort({
+        createdAt: -1,
+      })
+      .lean();
+  }
+
   async list(
     status?: string,
   ) {

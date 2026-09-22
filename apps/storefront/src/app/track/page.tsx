@@ -2,7 +2,7 @@ import {
   redirect,
 } from 'next/navigation';
 
-export default function LegacyTrackOrderPage() {
+export default function LegacyTrackPage() {
   redirect(
     '/orders',
   );

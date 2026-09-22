@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -33,11 +34,31 @@ export class ReturnsController {
   @Post()
   create(
     @Body()
-    dto:
-      CreateReturnDto,
+    dto: CreateReturnDto,
   ) {
     return this.returns
       .create(dto);
+  }
+
+  /*
+   * Customer return history.
+   *
+   * The customer never needs to type an
+   * order number or phone number to see
+   * their own return requests.
+   */
+  @UseGuards(AuthGuard)
+  @RequireRole('customer')
+  @Get('me')
+  mine(
+    @Req()
+    request: any,
+  ) {
+    return this.returns
+      .listForCustomer(
+        request.user
+          .customerId,
+      );
   }
 
   @UseGuards(AuthGuard)
@@ -51,8 +72,6 @@ export class ReturnsController {
       .list(status);
   }
 
-  @UseGuards(AuthGuard)
-  @RequireRole('admin')
   @Get(':returnNumber')
   get(
     @Param('returnNumber')
@@ -67,7 +86,7 @@ export class ReturnsController {
   @Patch(
     ':returnNumber/status',
   )
-  update(
+  updateStatus(
     @Param('returnNumber')
     returnNumber: string,
 

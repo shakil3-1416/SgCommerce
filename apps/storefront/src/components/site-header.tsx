@@ -20,8 +20,8 @@ export function SiteHeader() {
             Shop
           </Link>
 
-          <Link href="/track-order">
-            Track
+          <Link href="/orders">
+            Orders
           </Link>
 
           <Link href="/returns">

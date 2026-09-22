@@ -73,7 +73,7 @@ export default async function OrderConfirmation({
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="/track-order"
+            href="/orders"
             className="rounded-xl bg-[#1f1235] px-6 py-3 font-bold text-white"
           >
             Track order
