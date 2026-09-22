@@ -43,6 +43,13 @@ export class StockMovement {
     required: true,
   })
   resultingOnHand!: number;
+  @Prop({
+    type: String,
+    trim: true,
+    maxlength: 240,
+  })
+  idempotencyKey?: string;
+
 }
 
 export const StockMovementSchema =
@@ -54,3 +61,14 @@ StockMovementSchema.index({
   sku: 1,
   createdAt: -1,
 });
+
+
+StockMovementSchema.index(
+  {
+    idempotencyKey: 1,
+  },
+  {
+    unique: true,
+    sparse: true,
+  },
+);

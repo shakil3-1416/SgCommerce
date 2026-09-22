@@ -64,6 +64,13 @@ export class Inventory {
     default: 5,
   })
   reorderLevel!: number;
+  @Prop({
+    type: [String],
+    default: [],
+    select: false,
+  })
+  appliedAdjustments!: string[];
+
 }
 
 export const InventorySchema =

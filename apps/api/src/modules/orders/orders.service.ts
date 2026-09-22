@@ -483,10 +483,183 @@ export class OrdersService {
     };
   }
 
+  private async restoreCancelledStock(
+    order: any,
+  ) {
+    for (
+      const item
+      of order.items
+    ) {
+      await this.inventory.adjust(
+        item.sku,
+        {
+          delta:
+            item.quantity,
+
+          reason:
+            'order_cancelled',
+
+          reference:
+            order.orderNumber,
+
+          idempotencyKey:
+            `order-cancel:${order.orderNumber}:${item.sku}`,
+        },
+      );
+    }
+  }
+
   async updateStatus(
     orderNumber: string,
     dto: UpdateOrderStatusDto,
   ) {
+    const normalizedOrderNumber =
+      orderNumber
+        .trim()
+        .toUpperCase();
+
+    const current =
+      await this.orderModel
+        .findOne({
+          orderNumber:
+            normalizedOrderNumber,
+        })
+        .lean();
+
+    if (!current) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    const transitions:
+      Record<
+        string,
+        string[]
+      > = {
+        pending: [
+          'confirmed',
+          'cancelled',
+        ],
+
+        confirmed: [
+          'processing',
+          'cancelled',
+        ],
+
+        processing: [
+          'shipped',
+          'cancelled',
+        ],
+
+        shipped: [
+          'delivered',
+        ],
+
+        delivered: [],
+        cancelled: [],
+      };
+
+    /*
+     * Repeating the current status is treated as an
+     * idempotent retry.
+     *
+     * This is especially important for cancellation:
+     * if a previous request changed the order status
+     * but failed halfway through restocking, retrying
+     * cancelled will safely resume the restock.
+     */
+    if (
+      dto.status ===
+      current.status
+    ) {
+      const sameStatusUpdate:
+        Record<
+          string,
+          unknown
+        > = {};
+
+      if (
+        dto.trackingNumber !==
+        undefined
+      ) {
+        sameStatusUpdate.trackingNumber =
+          dto.trackingNumber;
+      }
+
+      if (
+        current.status ===
+          'delivered' &&
+        current.paymentMethod ===
+          'cod'
+      ) {
+        sameStatusUpdate.paymentStatus =
+          'paid';
+      }
+
+      if (
+        current.status ===
+        'cancelled'
+      ) {
+        sameStatusUpdate.paymentStatus =
+          'cancelled';
+      }
+
+      let result:
+        any = current;
+
+      if (
+        Object.keys(
+          sameStatusUpdate,
+        ).length > 0
+      ) {
+        result =
+          await this.orderModel
+            .findOneAndUpdate(
+              {
+                orderNumber:
+                  normalizedOrderNumber,
+              },
+              {
+                $set:
+                  sameStatusUpdate,
+              },
+              {
+                new: true,
+                runValidators:
+                  true,
+              },
+            )
+            .lean();
+      }
+
+      if (
+        current.status ===
+        'cancelled'
+      ) {
+        await this.restoreCancelledStock(
+          current,
+        );
+      }
+
+      return result;
+    }
+
+    const allowed =
+      transitions[
+        current.status
+      ] ?? [];
+
+    if (
+      !allowed.includes(
+        dto.status,
+      )
+    ) {
+      throw new BadRequestException(
+        `Cannot move order from ${current.status} to ${dto.status}`,
+      );
+    }
+
     const update:
       Record<
         string,
@@ -504,31 +677,105 @@ export class OrdersService {
         dto.trackingNumber;
     }
 
-    const order =
+    /*
+     * COD becomes paid only when the order is
+     * actually delivered.
+     */
+    if (
+      dto.status ===
+        'delivered' &&
+      current.paymentMethod ===
+        'cod'
+    ) {
+      update.paymentStatus =
+        'paid';
+    }
+
+    if (
+      dto.status ===
+      'cancelled'
+    ) {
+      update.paymentStatus =
+        'cancelled';
+    }
+
+    /*
+     * Optimistic status predicate prevents two
+     * concurrent transitions from both succeeding.
+     */
+    const updated =
       await this.orderModel
         .findOneAndUpdate(
           {
             orderNumber:
-              orderNumber
-                .trim()
-                .toUpperCase(),
+              normalizedOrderNumber,
+
+            status:
+              current.status,
           },
           {
-            $set: update,
+            $set:
+              update,
           },
           {
             new: true,
-            runValidators: true,
+            runValidators:
+              true,
           },
         )
         .lean();
 
-    if (!order) {
-      throw new NotFoundException(
-        'Order not found',
+    if (!updated) {
+      const latest =
+        await this.orderModel
+          .findOne({
+            orderNumber:
+              normalizedOrderNumber,
+          })
+          .lean();
+
+      if (!latest) {
+        throw new NotFoundException(
+          'Order not found',
+        );
+      }
+
+      /*
+       * Another request may already have completed
+       * the exact same transition. Treat that as
+       * an idempotent retry.
+       */
+      if (
+        latest.status ===
+        dto.status
+      ) {
+        if (
+          latest.status ===
+          'cancelled'
+        ) {
+          await this.restoreCancelledStock(
+            latest,
+          );
+        }
+
+        return latest;
+      }
+
+      throw new BadRequestException(
+        'Order status changed concurrently. Refresh and try again.',
       );
     }
 
-    return order;
+    if (
+      dto.status ===
+      'cancelled'
+    ) {
+      await this.restoreCancelledStock(
+        updated,
+      );
+    }
+
+    return updated;
   }
+
 }

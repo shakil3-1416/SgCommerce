@@ -44,36 +44,50 @@ export class RefundsService {
     customerPhone: string;
     amount: number;
   }) {
-    const existing =
-      await this.refundModel.findOne({
-        returnNumber:
-          input.returnNumber,
-      });
+    return this.refundModel
+      .findOneAndUpdate(
+        {
+          returnNumber:
+            input.returnNumber,
+        },
+        {
+          $setOnInsert: {
+            refundNumber:
+              this.generateNumber(),
 
-    if (existing) {
-      return existing;
-    }
+            returnNumber:
+              input.returnNumber,
 
-    return this.refundModel.create({
-      refundNumber:
-        this.generateNumber(),
+            orderNumber:
+              input.orderNumber,
 
-      returnNumber:
-        input.returnNumber,
+            customerPhone:
+              input.customerPhone,
 
-      orderNumber:
-        input.orderNumber,
+            amount:
+              input.amount,
 
-      customerPhone:
-        input.customerPhone,
+            currency:
+              'BDT',
 
-      amount:
-        input.amount,
+            method:
+              'manual',
 
-      currency: 'BDT',
-      method: 'manual',
-      status: 'pending',
-    });
+            status:
+              'pending',
+          },
+        },
+        {
+          upsert:
+            true,
+
+          new:
+            true,
+
+          runValidators:
+            true,
+        },
+      );
   }
 
   async list(

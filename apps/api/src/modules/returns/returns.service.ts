@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,10 @@ import {
 import {
   InventoryService,
 } from '../inventory/inventory.service';
+
+import {
+  RedisService,
+} from '../../infrastructure/redis/redis.service';
 
 import {
   Order,
@@ -51,6 +56,9 @@ export class ReturnsService {
 
     private readonly refunds:
       RefundsService,
+
+    private readonly redis:
+      RedisService,
   ) {}
 
   private generateNumber() {
@@ -74,128 +82,235 @@ export class ReturnsService {
     const phone =
       dto.phone
         .trim()
-        .replace(/\s+/g, '');
+        .replace(
+          /\s+/g,
+          '',
+        );
 
-    const order =
-      await this.orderModel
-        .findOne({
-          orderNumber,
-          'customer.phone':
-            phone,
-        })
-        .lean();
+    const lockKey =
+      `return-create:${orderNumber}`;
 
-    if (!order) {
-      throw new NotFoundException(
-        'Order not found for this phone number',
+    const lockToken =
+      await this.redis
+        .acquireLock(
+          lockKey,
+          15000,
+        );
+
+    if (!lockToken) {
+      throw new ConflictException(
+        'Another return request for this order is being processed',
       );
     }
 
-    if (
-      order.status !==
-      'delivered'
-    ) {
-      throw new BadRequestException(
-        'Returns can only be requested after delivery',
-      );
-    }
+    try {
+      const order =
+        await this.orderModel
+          .findOne({
+            orderNumber,
 
-    const seen =
-      new Set<string>();
+            'customer.phone':
+              phone,
+          })
+          .lean();
 
-    const prepared = [];
-
-    for (
-      const requested
-      of dto.items
-    ) {
-      const sku =
-        requested.sku
-          .trim()
-          .toUpperCase();
-
-      if (seen.has(sku)) {
-        throw new BadRequestException(
-          'Duplicate return SKU',
-        );
-      }
-
-      seen.add(sku);
-
-      const orderItem =
-        order.items.find(
-          (item) =>
-            item.sku === sku,
-        );
-
-      if (!orderItem) {
-        throw new BadRequestException(
-          `${sku} is not part of this order`,
+      if (!order) {
+        throw new NotFoundException(
+          'Order not found for this phone number',
         );
       }
 
       if (
-        requested.quantity >
-        orderItem.quantity
+        order.status !==
+        'delivered'
       ) {
         throw new BadRequestException(
-          `Return quantity for ${sku} exceeds ordered quantity`,
+          'Returns can only be requested after delivery',
         );
       }
 
-      prepared.push({
-        sku,
+      const previousReturns =
+        await this.returnModel
+          .find({
+            orderNumber,
 
-        productName:
-          orderItem.productName,
+            status: {
+              $ne:
+                'rejected',
+            },
+          })
+          .lean();
 
-        variantTitle:
-          orderItem.variantTitle,
+      const alreadyRequested =
+        new Map<
+          string,
+          number
+        >();
 
-        quantity:
-          requested.quantity,
+      for (
+        const previous
+        of previousReturns
+      ) {
+        for (
+          const item
+          of previous.items
+        ) {
+          const sku =
+            item.sku
+              .trim()
+              .toUpperCase();
 
-        unitPrice:
-          orderItem.unitPrice,
+          alreadyRequested.set(
+            sku,
+            (
+              alreadyRequested.get(
+                sku,
+              ) ??
+              0
+            ) +
+              item.quantity,
+          );
+        }
+      }
 
-        refundAmount:
-          orderItem.unitPrice *
-          requested.quantity,
-      });
+      const seen =
+        new Set<
+          string
+        >();
+
+      const prepared = [];
+
+      for (
+        const requested
+        of dto.items
+      ) {
+        const sku =
+          requested.sku
+            .trim()
+            .toUpperCase();
+
+        if (
+          seen.has(
+            sku,
+          )
+        ) {
+          throw new BadRequestException(
+            'Duplicate return SKU',
+          );
+        }
+
+        seen.add(
+          sku,
+        );
+
+        const orderItem =
+          order.items.find(
+            (
+              item,
+            ) =>
+              item.sku ===
+              sku,
+          );
+
+        if (!orderItem) {
+          throw new BadRequestException(
+            `${sku} is not part of this order`,
+          );
+        }
+
+        const previouslyRequested =
+          alreadyRequested.get(
+            sku,
+          ) ??
+          0;
+
+        const remaining =
+          orderItem.quantity -
+          previouslyRequested;
+
+        if (
+          requested.quantity >
+          remaining
+        ) {
+          throw new BadRequestException(
+            `Only ${Math.max(
+              0,
+              remaining,
+            )} unit(s) of ${sku} remain eligible for return`,
+          );
+        }
+
+        prepared.push({
+          sku,
+
+          productName:
+            orderItem.productName,
+
+          variantTitle:
+            orderItem.variantTitle,
+
+          quantity:
+            requested.quantity,
+
+          unitPrice:
+            orderItem.unitPrice,
+
+          refundAmount:
+            orderItem.unitPrice *
+            requested.quantity,
+        });
+      }
+
+      const refundAmount =
+        prepared.reduce(
+          (
+            sum,
+            item,
+          ) =>
+            sum +
+            item.refundAmount,
+          0,
+        );
+
+      return this.returnModel
+        .create({
+          returnNumber:
+            this.generateNumber(),
+
+          orderNumber,
+
+          customerPhone:
+            phone,
+
+          items:
+            prepared,
+
+          reason:
+            dto.reason,
+
+          details:
+            dto.details ??
+            '',
+
+          refundAmount,
+
+          status:
+            'requested',
+
+          restocked:
+            false,
+        });
+    } finally {
+      await this.redis
+        .releaseLock(
+          lockKey,
+          lockToken,
+        )
+        .catch(
+          () =>
+            undefined,
+        );
     }
-
-    const refundAmount =
-      prepared.reduce(
-        (
-          sum,
-          item,
-        ) =>
-          sum +
-          item.refundAmount,
-        0,
-      );
-
-    return this.returnModel.create({
-      returnNumber:
-        this.generateNumber(),
-
-      orderNumber,
-      customerPhone:
-        phone,
-
-      items:
-        prepared,
-
-      reason:
-        dto.reason,
-
-      details:
-        dto.details ?? '',
-
-      refundAmount,
-      status: 'requested',
-      restocked: false,
-    });
   }
 
   async list(
@@ -239,117 +354,192 @@ export class ReturnsService {
     returnNumber: string,
     dto: UpdateReturnStatusDto,
   ) {
-    const request =
-      await this.returnModel
-        .findOne({
-          returnNumber:
-            returnNumber
-              .trim()
-              .toUpperCase(),
-        });
+    const normalizedReturnNumber =
+      returnNumber
+        .trim()
+        .toUpperCase();
 
-    if (!request) {
-      throw new NotFoundException(
-        'Return request not found',
+    const lockKey =
+      `return-status:${normalizedReturnNumber}`;
+
+    const lockToken =
+      await this.redis
+        .acquireLock(
+          lockKey,
+          15000,
+        );
+
+    if (!lockToken) {
+      throw new ConflictException(
+        'This return is already being updated',
       );
     }
 
-    const transitions:
-      Record<
-        string,
-        string[]
-      > = {
-        requested: [
-          'approved',
-          'rejected',
-        ],
+    try {
+      const request =
+        await this.returnModel
+          .findOne({
+            returnNumber:
+              normalizedReturnNumber,
+          });
 
-        approved: [
-          'received',
-        ],
-
-        received: [
-          'completed',
-        ],
-
-        rejected: [],
-        completed: [],
-      };
-
-    if (
-      dto.status ===
-      request.status
-    ) {
-      return request.toObject();
-    }
-
-    if (
-      !(
-        transitions[
-          request.status
-        ] ?? []
-      ).includes(
-        dto.status,
-      )
-    ) {
-      throw new BadRequestException(
-        `Cannot move return from ${request.status} to ${dto.status}`,
-      );
-    }
-
-    if (
-      dto.status ===
-        'received' &&
-      !request.restocked
-    ) {
-      for (
-        const item
-        of request.items
-      ) {
-        await this.inventory.adjust(
-          item.sku,
-          {
-            delta:
-              item.quantity,
-
-            reason:
-              'return_received',
-
-            reference:
-              request.returnNumber,
-          },
+      if (!request) {
+        throw new NotFoundException(
+          'Return request not found',
         );
       }
 
-      request.restocked =
-        true;
+      const transitions:
+        Record<
+          string,
+          string[]
+        > = {
+          requested: [
+            'approved',
+            'rejected',
+          ],
+
+          approved: [
+            'received',
+          ],
+
+          received: [
+            'completed',
+          ],
+
+          rejected: [],
+          completed: [],
+        };
+
+      const restock =
+        async () => {
+          if (
+            request.restocked
+          ) {
+            return;
+          }
+
+          for (
+            const item
+            of request.items
+          ) {
+            await this.inventory
+              .adjust(
+                item.sku,
+                {
+                  delta:
+                    item.quantity,
+
+                  reason:
+                    'return_received',
+
+                  reference:
+                    request.returnNumber,
+
+                  idempotencyKey:
+                    `return-restock:${request.returnNumber}:${item.sku}`,
+                },
+              );
+          }
+
+          request.restocked =
+            true;
+        };
+
+      if (
+        dto.status ===
+        request.status
+      ) {
+        if (
+          request.status ===
+            'received' &&
+          !request.restocked
+        ) {
+          await restock();
+          await request.save();
+        }
+
+        if (
+          request.status ===
+          'completed'
+        ) {
+          await this.refunds
+            .ensureForReturn({
+              returnNumber:
+                request.returnNumber,
+
+              orderNumber:
+                request.orderNumber,
+
+              customerPhone:
+                request.customerPhone,
+
+              amount:
+                request.refundAmount,
+            });
+        }
+
+        return request.toObject();
+      }
+
+      if (
+        !(
+          transitions[
+            request.status
+          ] ?? []
+        ).includes(
+          dto.status,
+        )
+      ) {
+        throw new BadRequestException(
+          `Cannot move return from ${request.status} to ${dto.status}`,
+        );
+      }
+
+      if (
+        dto.status ===
+        'received'
+      ) {
+        await restock();
+      }
+
+      request.status =
+        dto.status;
+
+      await request.save();
+
+      if (
+        dto.status ===
+        'completed'
+      ) {
+        await this.refunds
+          .ensureForReturn({
+            returnNumber:
+              request.returnNumber,
+
+            orderNumber:
+              request.orderNumber,
+
+            customerPhone:
+              request.customerPhone,
+
+            amount:
+              request.refundAmount,
+          });
+      }
+
+      return request.toObject();
+    } finally {
+      await this.redis
+        .releaseLock(
+          lockKey,
+          lockToken,
+        )
+        .catch(
+          () =>
+            undefined,
+        );
     }
-
-    request.status =
-      dto.status;
-
-    await request.save();
-
-    if (
-      dto.status ===
-      'completed'
-    ) {
-      await this.refunds
-        .ensureForReturn({
-          returnNumber:
-            request.returnNumber,
-
-          orderNumber:
-            request.orderNumber,
-
-          customerPhone:
-            request.customerPhone,
-
-          amount:
-            request.refundAmount,
-        });
-    }
-
-    return request.toObject();
   }
+
 }

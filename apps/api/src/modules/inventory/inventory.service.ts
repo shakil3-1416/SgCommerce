@@ -33,6 +33,12 @@ import {
   UpsertInventoryDto,
 } from './dto/inventory.dto';
 
+type StockAdjustmentInput =
+  AdjustStockDto & {
+    idempotencyKey?: string;
+  };
+
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -214,7 +220,7 @@ export class InventoryService {
 
   async adjust(
     sku: string,
-    dto: AdjustStockDto,
+    dto: StockAdjustmentInput,
   ) {
     const normalized =
       this.normalizeSku(sku);
@@ -225,46 +231,190 @@ export class InventoryService {
       );
     }
 
-    let inventory: InventoryDocument | null;
+    const idempotencyKey =
+      dto.idempotencyKey
+        ?.trim()
+        .slice(
+          0,
+          240,
+        ) ||
+      undefined;
 
-    if (dto.delta < 0) {
+    const recordMovement =
+      async (
+        resultingOnHand:
+          number,
+      ) => {
+        const movement:
+          Record<
+            string,
+            unknown
+          > = {
+            sku:
+              normalized,
+
+            delta:
+              dto.delta,
+
+            reason:
+              dto.reason,
+
+            reference:
+              dto.reference ??
+              '',
+
+            resultingOnHand,
+          };
+
+        if (
+          idempotencyKey
+        ) {
+          movement.idempotencyKey =
+            idempotencyKey;
+        }
+
+        try {
+          await this.movementModel
+            .create(
+              movement,
+            );
+        } catch (error) {
+          const duplicate =
+            idempotencyKey &&
+            typeof error ===
+              'object' &&
+            error !== null &&
+            'code' in error &&
+            (
+              error as {
+                code?:
+                  number;
+              }
+            ).code ===
+              11000;
+
+          if (!duplicate) {
+            throw error;
+          }
+        }
+      };
+
+    const alreadyApplied =
+      async () => {
+        if (
+          !idempotencyKey
+        ) {
+          return null;
+        }
+
+        return this.inventoryModel
+          .findOne({
+            sku:
+              normalized,
+
+            appliedAdjustments:
+              idempotencyKey,
+          });
+      };
+
+    const update:
+      Record<
+        string,
+        any
+      > = {
+        $inc: {
+          onHand:
+            dto.delta,
+        },
+      };
+
+    if (
+      idempotencyKey
+    ) {
+      update.$addToSet = {
+        appliedAdjustments:
+          idempotencyKey,
+      };
+    }
+
+    const baseFilter:
+      Record<
+        string,
+        any
+      > = {
+        sku:
+          normalized,
+      };
+
+    if (
+      idempotencyKey
+    ) {
+      baseFilter.appliedAdjustments =
+        {
+          $ne:
+            idempotencyKey,
+        };
+    }
+
+    let inventory:
+      InventoryDocument |
+      null;
+
+    if (
+      dto.delta <
+      0
+    ) {
       const required =
-        Math.abs(dto.delta);
-
-      inventory =
-        await this.inventoryModel.findOneAndUpdate(
-          {
-            sku: normalized,
-
-            $expr: {
-              $gte: [
-                {
-                  $subtract: [
-                    '$onHand',
-                    '$reserved',
-                  ],
-                },
-                required,
-              ],
-            },
-          },
-          {
-            $inc: {
-              onHand:
-                dto.delta,
-            },
-          },
-          {
-            new: true,
-            runValidators: true,
-          },
+        Math.abs(
+          dto.delta,
         );
 
+      inventory =
+        await this.inventoryModel
+          .findOneAndUpdate(
+            {
+              ...baseFilter,
+
+              $expr: {
+                $gte: [
+                  {
+                    $subtract: [
+                      '$onHand',
+                      '$reserved',
+                    ],
+                  },
+                  required,
+                ],
+              },
+            },
+            update,
+            {
+              new: true,
+              runValidators:
+                true,
+            },
+          );
+
       if (!inventory) {
+        const prior =
+          await alreadyApplied();
+
+        if (prior) {
+          await recordMovement(
+            prior.onHand,
+          );
+
+          return this.serialize(
+            prior,
+          );
+        }
+
         const exists =
-          await this.inventoryModel.exists({
-            sku: normalized,
-          });
+          await this.inventoryModel
+            .exists({
+              sku:
+                normalized,
+            });
 
         if (!exists) {
           throw new NotFoundException(
@@ -278,38 +428,40 @@ export class InventoryService {
       }
     } else {
       inventory =
-        await this.inventoryModel.findOneAndUpdate(
-          {
-            sku: normalized,
-          },
-          {
-            $inc: {
-              onHand:
-                dto.delta,
+        await this.inventoryModel
+          .findOneAndUpdate(
+            baseFilter,
+            update,
+            {
+              new: true,
+              runValidators:
+                true,
             },
-          },
-          {
-            new: true,
-            runValidators: true,
-          },
-        );
+          );
 
       if (!inventory) {
+        const prior =
+          await alreadyApplied();
+
+        if (prior) {
+          await recordMovement(
+            prior.onHand,
+          );
+
+          return this.serialize(
+            prior,
+          );
+        }
+
         throw new NotFoundException(
           `Inventory for SKU "${normalized}" not found`,
         );
       }
     }
 
-    await this.movementModel.create({
-      sku: normalized,
-      delta: dto.delta,
-      reason: dto.reason,
-      reference:
-        dto.reference ?? '',
-      resultingOnHand:
-        inventory.onHand,
-    });
+    await recordMovement(
+      inventory.onHand,
+    );
 
     return this.serialize(
       inventory,

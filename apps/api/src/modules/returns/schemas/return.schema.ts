@@ -137,3 +137,9 @@ export const ReturnRequestSchema =
   SchemaFactory.createForClass(
     ReturnRequest,
   );
+
+
+ReturnRequestSchema.index({
+  orderNumber: 1,
+  status: 1,
+});

@@ -241,6 +241,7 @@ export class Order {
       'paid',
       'failed',
       'refunded',
+      'cancelled',
     ],
   })
   paymentStatus!: string;
