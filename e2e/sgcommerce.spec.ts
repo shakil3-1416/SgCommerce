@@ -219,3 +219,281 @@ test(
     ).toBeVisible();
   },
 );
+
+
+test(
+  'customer address persists after save and reload',
+  async ({
+    page,
+  }) => {
+    const stamp =
+      Date.now();
+
+    const email =
+      `browser-address-${stamp}@example.com`;
+
+    const phone =
+      `018${String(
+        stamp,
+      ).slice(-8)}`;
+
+    await page.goto(
+      'http://localhost:3100/register',
+    );
+
+    await page
+      .locator(
+        'input[name="name"]',
+      )
+      .fill(
+        'Browser Address Customer',
+      );
+
+    await page
+      .locator(
+        'input[name="email"]',
+      )
+      .fill(
+        email,
+      );
+
+    await page
+      .locator(
+        'input[name="phone"]',
+      )
+      .fill(
+        phone,
+      );
+
+    await page
+      .locator(
+        'input[name="password"]',
+      )
+      .fill(
+        'Browser123!',
+      );
+
+    await page
+      .getByRole(
+        'button',
+        {
+          name:
+            /register|create account|sign up/i,
+        },
+      )
+      .click();
+
+    await expect(
+      page,
+    ).toHaveURL(
+      /\/account/,
+      {
+        timeout:
+          10000,
+      },
+    );
+
+    const form =
+      page
+        .locator(
+          'form',
+        )
+        .filter({
+          has:
+            page.getByRole(
+              'button',
+              {
+                name:
+                  /save address/i,
+              },
+            ),
+        });
+
+    await form
+      .locator(
+        'input[name="label"]',
+      )
+      .fill(
+        'Home',
+      );
+
+    await form
+      .locator(
+        'input[name="addressLine1"]',
+      )
+      .fill(
+        'House 12, Road 4',
+      );
+
+    const line2 =
+      form.locator(
+        'input[name="addressLine2"]',
+      );
+
+    if (
+      await line2.count()
+    ) {
+      await line2.fill(
+        'Flat 3B',
+      );
+    }
+
+    await form
+      .locator(
+        'input[name="city"]',
+      )
+      .fill(
+        'Dhaka',
+      );
+
+    await form
+      .locator(
+        'input[name="area"]',
+      )
+      .fill(
+        'Mirpur 2',
+      );
+
+    const postal =
+      form.locator(
+        'input[name="postalCode"]',
+      );
+
+    if (
+      await postal.count()
+    ) {
+      await postal.fill(
+        '1216',
+      );
+    }
+
+    await form
+      .locator(
+        'select[name="zone"]',
+      )
+      .selectOption(
+        'inside_dhaka',
+      );
+
+    await form
+      .locator(
+        'input[name="isDefault"]',
+      )
+      .check();
+
+    await page
+      .getByRole(
+        'button',
+        {
+          name:
+            /save address/i,
+        },
+      )
+      .click();
+
+    await expect(
+      page.getByRole(
+        'status',
+      ),
+    ).toContainText(
+      'Address saved successfully',
+    );
+
+    await expect(
+      page.getByText(
+        'House 12, Road 4',
+        {
+          exact:
+            false,
+        },
+      ),
+    ).toBeVisible();
+
+    await expect(
+      page.getByText(
+        /Home.*Default/i,
+      ),
+    ).toBeVisible();
+
+    await page.reload();
+
+    await expect(
+      page.getByText(
+        'House 12, Road 4',
+        {
+          exact:
+            false,
+        },
+      ),
+    ).toBeVisible({
+      timeout:
+        10000,
+    });
+
+    await expect(
+      page.getByText(
+        /Home.*Default/i,
+      ),
+    ).toBeVisible();
+  },
+);
+
+test(
+  'customer cart survives reload',
+  async ({
+    page,
+  }) => {
+    await page.goto(
+      'http://localhost:3100/products/classic-cotton-t-shirt',
+    );
+
+    await expect(
+      page.getByRole(
+        'heading',
+        {
+          name:
+            'Classic Cotton T-Shirt',
+        },
+      ),
+    ).toBeVisible();
+
+    await page
+      .getByRole(
+        'button',
+        {
+          name:
+            /add to cart/i,
+        },
+      )
+      .click();
+
+    await page.goto(
+      'http://localhost:3100/cart',
+    );
+
+    await expect(
+      page.getByText(
+        'Classic Cotton T-Shirt',
+        {
+          exact:
+            false,
+        },
+      ).first(),
+    ).toBeVisible();
+
+    await page.reload();
+
+    await expect(
+      page.getByText(
+        'Classic Cotton T-Shirt',
+        {
+          exact:
+            false,
+        },
+      ).first(),
+    ).toBeVisible({
+      timeout:
+        7500,
+    });
+  },
+);

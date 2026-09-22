@@ -62,6 +62,26 @@ export default function AccountPage() {
   ] =
     useState('');
 
+  const [
+    savingAddress,
+    setSavingAddress,
+  ] =
+    useState(false);
+
+  const [
+    removingAddress,
+    setRemovingAddress,
+  ] =
+    useState<string | null>(
+      null,
+    );
+
+  const [
+    addressMessage,
+    setAddressMessage,
+  ] =
+    useState('');
+
   async function authFetch(
     path: string,
     init?: RequestInit,
@@ -151,92 +171,259 @@ export default function AccountPage() {
   ) {
     event.preventDefault();
 
-    setError('');
+    /*
+     * Capture the DOM form before the first await.
+     * React event.currentTarget should not be relied
+     * on after an asynchronous boundary.
+     */
+    const formElement =
+      event.currentTarget;
 
-    const form =
-      new FormData(
-        event.currentTarget,
-      );
-
-    const response =
-      await authFetch(
-        '/auth/me/addresses',
-        {
-          method: 'POST',
-
-          body:
-            JSON.stringify({
-              label:
-                String(
-                  form.get(
-                    'label',
-                  ) ?? '',
-                ),
-
-              addressLine1:
-                String(
-                  form.get(
-                    'addressLine1',
-                  ) ?? '',
-                ),
-
-              city:
-                String(
-                  form.get(
-                    'city',
-                  ) ?? '',
-                ),
-
-              area:
-                String(
-                  form.get(
-                    'area',
-                  ) ?? '',
-                ),
-
-              zone:
-                String(
-                  form.get(
-                    'zone',
-                  ) ??
-                    'inside_dhaka',
-                ),
-
-              isDefault:
-                form.get(
-                  'isDefault',
-                ) === 'on',
-            }),
-        },
-      );
-
-    if (!response.ok) {
-      const body =
-        await response.json();
-
-      setError(
-        body.message ??
-          'Unable to save address',
-      );
-
+    if (savingAddress) {
       return;
     }
 
-    event.currentTarget.reset();
-    await load();
+    setError('');
+    setAddressMessage('');
+    setSavingAddress(true);
+
+    try {
+      const form =
+        new FormData(
+          formElement,
+        );
+
+      const response =
+        await authFetch(
+          '/auth/me/addresses',
+          {
+            method:
+              'POST',
+
+            body:
+              JSON.stringify({
+                label:
+                  String(
+                    form.get(
+                      'label',
+                    ) ?? '',
+                  ).trim(),
+
+                addressLine1:
+                  String(
+                    form.get(
+                      'addressLine1',
+                    ) ?? '',
+                  ).trim(),
+
+                addressLine2:
+                  String(
+                    form.get(
+                      'addressLine2',
+                    ) ?? '',
+                  ).trim(),
+
+                city:
+                  String(
+                    form.get(
+                      'city',
+                    ) ?? '',
+                  ).trim(),
+
+                area:
+                  String(
+                    form.get(
+                      'area',
+                    ) ?? '',
+                  ).trim(),
+
+                postalCode:
+                  String(
+                    form.get(
+                      'postalCode',
+                    ) ?? '',
+                  ).trim(),
+
+                zone:
+                  String(
+                    form.get(
+                      'zone',
+                    ) ??
+                      'inside_dhaka',
+                  ),
+
+                isDefault:
+                  form.get(
+                    'isDefault',
+                  ) ===
+                    'on',
+              }),
+          },
+        );
+
+      if (!response.ok) {
+        let message =
+          'Unable to save address';
+
+        try {
+          const body =
+            await response.json();
+
+          if (
+            Array.isArray(
+              body.message,
+            )
+          ) {
+            message =
+              body.message.join(
+                ', ',
+              );
+          } else if (
+            typeof body.message ===
+              'string'
+          ) {
+            message =
+              body.message;
+          }
+        } catch {
+          // Keep friendly fallback.
+        }
+
+        throw new Error(
+          message,
+        );
+      }
+
+      /*
+       * The API returns the updated customer.
+       * Update the screen immediately instead of
+       * making the customer wait for another fetch.
+       */
+      const customer =
+        await response.json();
+
+      setAccount(
+        (current) =>
+          current
+            ? {
+                ...current,
+                customer,
+              }
+            : {
+                customer,
+              },
+      );
+
+      formElement.reset();
+
+      setAddressMessage(
+        'Address saved successfully.',
+      );
+    } catch (cause) {
+      if (
+        cause instanceof Error &&
+        cause.message ===
+          'NO_TOKEN'
+      ) {
+        clearCustomerToken();
+
+        router.replace(
+          '/login',
+        );
+
+        return;
+      }
+
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to save address',
+      );
+    } finally {
+      setSavingAddress(false);
+    }
   }
 
   async function removeAddress(
     id: string,
   ) {
-    await authFetch(
-      `/auth/me/addresses/${encodeURIComponent(id)}`,
-      {
-        method: 'DELETE',
-      },
+    if (
+      removingAddress
+    ) {
+      return;
+    }
+
+    setError('');
+    setAddressMessage('');
+    setRemovingAddress(
+      id,
     );
 
-    await load();
+    try {
+      const response =
+        await authFetch(
+          `/auth/me/addresses/${encodeURIComponent(
+            id,
+          )}`,
+          {
+            method:
+              'DELETE',
+          },
+        );
+
+      if (!response.ok) {
+        let message =
+          'Unable to remove address';
+
+        try {
+          const body =
+            await response.json();
+
+          if (
+            typeof body.message ===
+              'string'
+          ) {
+            message =
+              body.message;
+          }
+        } catch {
+          // Keep fallback.
+        }
+
+        throw new Error(
+          message,
+        );
+      }
+
+      const customer =
+        await response.json();
+
+      setAccount(
+        (current) =>
+          current
+            ? {
+                ...current,
+                customer,
+              }
+            : {
+                customer,
+              },
+      );
+
+      setAddressMessage(
+        'Address removed.',
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to remove address',
+      );
+    } finally {
+      setRemovingAddress(
+        null,
+      );
+    }
   }
 
   function logout() {
@@ -346,6 +533,10 @@ export default function AccountPage() {
                               address.id,
                             )
                           }
+                          disabled={
+                            removingAddress ===
+                            address.id
+                          }
                           className="text-sm font-semibold text-red-600"
                         >
                           Remove
@@ -375,7 +566,15 @@ export default function AccountPage() {
             <input
               required
               name="addressLine1"
-              placeholder="Address"
+              placeholder="House, road, street"
+              autoComplete="address-line1"
+              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
+            />
+
+            <input
+              name="addressLine2"
+              placeholder="Apartment, floor, unit (optional)"
+              autoComplete="address-line2"
               className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
             />
 
@@ -384,13 +583,23 @@ export default function AccountPage() {
                 required
                 name="city"
                 placeholder="City"
+                autoComplete="address-level2"
                 defaultValue="Dhaka"
                 className="rounded-xl border border-[#e8e2ef] px-4 py-3"
               />
 
               <input
                 name="area"
-                placeholder="Area"
+                placeholder="Area / neighbourhood"
+                autoComplete="address-level3"
+                className="rounded-xl border border-[#e8e2ef] px-4 py-3"
+              />
+
+              <input
+                name="postalCode"
+                placeholder="Postal code"
+                inputMode="numeric"
+                autoComplete="postal-code"
                 className="rounded-xl border border-[#e8e2ef] px-4 py-3"
               />
             </div>
@@ -417,14 +626,25 @@ export default function AccountPage() {
               Make default
             </label>
 
+            {addressMessage && (
+              <p
+                role="status"
+                className="rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-800"
+              >
+                {addressMessage}
+              </p>
+            )}
+
             {error && (
               <p className="text-sm text-red-600">
                 {error}
               </p>
             )}
 
-            <button className="rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white">
-              Save address
+            <button
+              aria-busy={savingAddress}
+              disabled={savingAddress} className="rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white">
+              {savingAddress ? 'Saving...' : 'Save address'}
             </button>
           </form>
         </section>
