@@ -82,6 +82,8 @@ export default function AdminLoginPage() {
         <input
           required
           name="identifier"
+          autoComplete="username"
+          aria-label="Admin email"
           placeholder="Admin email"
           className="mt-8 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
         />
@@ -91,6 +93,8 @@ export default function AdminLoginPage() {
           minLength={8}
           type="password"
           name="password"
+          autoComplete="current-password"
+          aria-label="Password"
           placeholder="Password"
           className="mt-4 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
         />
@@ -101,7 +105,7 @@ export default function AdminLoginPage() {
           </p>
         )}
 
-        <button className="mt-6 w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white">
+        <button className="mt-6 w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white min-h-11 min-w-11">
           Sign in
         </button>
       </form>

@@ -17,6 +17,9 @@ export function proxy(
     path.startsWith(
       '/_next/',
     ) ||
+    path.startsWith(
+      '/catalog/',
+    ) ||
     path === '/favicon.ico'
   ) {
     return NextResponse.next();

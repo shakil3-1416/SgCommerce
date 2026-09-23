@@ -102,7 +102,7 @@ export default function CartPage() {
                               1,
                           )
                         }
-                        className="h-10 w-10 bg-[#faf8fc] font-bold text-[#1f1235]"
+                        className="h-10 w-10 bg-[#faf8fc] font-bold text-[#1f1235] min-h-11 min-w-11"
                       >
                         −
                       </button>
@@ -124,7 +124,7 @@ export default function CartPage() {
                               1,
                           )
                         }
-                        className="h-10 w-10 bg-[#faf8fc] font-bold text-[#1f1235] disabled:text-[#c5bccb]"
+                        className="h-10 w-10 bg-[#faf8fc] font-bold text-[#1f1235] disabled:text-[#c5bccb] min-h-11 min-w-11"
                       >
                         +
                       </button>
@@ -137,7 +137,7 @@ export default function CartPage() {
                           item.sku,
                         )
                       }
-                      className="text-sm font-semibold text-red-600"
+                      className="text-sm font-semibold text-red-600 min-h-11 min-w-11"
                     >
                       Remove
                     </button>

@@ -131,6 +131,7 @@ export default function RegisterPage() {
           <input
             required
             name="name"
+          aria-label="Full name"
             placeholder="Full name"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
@@ -139,6 +140,7 @@ export default function RegisterPage() {
             required
             type="email"
             name="email"
+          aria-label="Email address"
             placeholder="Email"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
@@ -146,6 +148,7 @@ export default function RegisterPage() {
           <input
             required
             name="phone"
+          aria-label="Phone number"
             placeholder="Phone"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
@@ -155,6 +158,7 @@ export default function RegisterPage() {
             minLength={8}
             type="password"
             name="password"
+          aria-label="Password"
             placeholder="Password"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />

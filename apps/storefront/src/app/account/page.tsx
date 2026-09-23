@@ -560,23 +560,20 @@ export default function AccountPage() {
               required
               name="label"
               placeholder="Home / Office"
-              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
-            />
+              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Address label" />
 
             <input
               required
               name="addressLine1"
               placeholder="House, road, street"
               autoComplete="address-line1"
-              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
-            />
+              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Street address" />
 
             <input
               name="addressLine2"
               placeholder="Apartment, floor, unit (optional)"
               autoComplete="address-line2"
-              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
-            />
+              className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Apartment, suite or additional address" />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <input
@@ -585,29 +582,26 @@ export default function AccountPage() {
                 placeholder="City"
                 autoComplete="address-level2"
                 defaultValue="Dhaka"
-                className="rounded-xl border border-[#e8e2ef] px-4 py-3"
-              />
+                className="rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="City" />
 
               <input
                 name="area"
                 placeholder="Area / neighbourhood"
                 autoComplete="address-level3"
-                className="rounded-xl border border-[#e8e2ef] px-4 py-3"
-              />
+                className="rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Area" />
 
               <input
                 name="postalCode"
                 placeholder="Postal code"
                 inputMode="numeric"
                 autoComplete="postal-code"
-                className="rounded-xl border border-[#e8e2ef] px-4 py-3"
-              />
+                className="rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Postal code" />
             </div>
 
             <select
               name="zone"
               className="w-full rounded-xl border border-[#e8e2ef] bg-white px-4 py-3"
-            >
+             aria-label="Delivery zone">
               <option value="inside_dhaka">
                 Inside Dhaka
               </option>
@@ -620,8 +614,7 @@ export default function AccountPage() {
             <label className="flex gap-2 text-sm">
               <input
                 type="checkbox"
-                name="isDefault"
-              />
+                name="isDefault" aria-label="Use as default address" />
 
               Make default
             </label>

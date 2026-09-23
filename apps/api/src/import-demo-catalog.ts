@@ -258,7 +258,7 @@ function curatedProducts():
       images:
         uniqueHttpsImages([
           'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=1200&q=85',
-          'https://images.unsplash.com/photo-1583743814966-8936f37f4678?auto=format&fit=crop&w=1200&q=85',
+          '/catalog/classic-cotton-t-shirt.svg',
         ]),
 
       price:
