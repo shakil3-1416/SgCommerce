@@ -6,6 +6,10 @@ import {
   useState,
 } from 'react';
 
+import {
+  confirmAction,
+} from '@/lib/confirm-action';
+
 
 interface Category {
   _id: string;
@@ -485,8 +489,17 @@ export function ProductManager() {
     product: Product,
   ) {
     if (
-      !window.confirm(
-        `Delete "${product.name}"?`,
+      !(
+        await confirmAction({
+          title:
+            'Delete product?',
+          description:
+            `Delete "${product.name}"? This action cannot be undone.`,
+          confirmLabel:
+            'Delete product',
+          destructive:
+            true,
+        })
       )
     ) {
       return;
@@ -519,7 +532,7 @@ export function ProductManager() {
   }
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[480px_1fr]">
+    <div className="grid min-w-0 gap-8 xl:grid-cols-[480px_minmax(0,1fr)]">
       <form
         onSubmit={submit}
         className="h-fit rounded-3xl border border-[#e8e2ef] bg-white p-6"
@@ -595,7 +608,7 @@ export function ProductManager() {
           </label>
 
           <div>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <span className="text-sm font-semibold">
                   Product images
@@ -641,6 +654,7 @@ export function ProductManager() {
                             event.target.value,
                           )
                         }
+                        aria-label={`Product image ${index + 1}`}
                         placeholder="https://..."
                         className="min-w-0 flex-1 rounded-xl border border-[#e8e2ef] px-4 py-3"
                       />
@@ -748,6 +762,7 @@ export function ProductManager() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <input
                       required
+                      aria-label={`Variant ${index + 1} SKU`}
                       placeholder="SKU"
                       value={
                         variant.sku
@@ -765,6 +780,7 @@ export function ProductManager() {
 
                     <input
                       required
+                      aria-label={`Variant ${index + 1} title`}
                       placeholder="Variant title"
                       value={
                         variant.title
@@ -784,6 +800,7 @@ export function ProductManager() {
                       required
                       min="0"
                       type="number"
+                      aria-label={`Variant ${index + 1} price`}
                       placeholder="Price"
                       value={
                         variant.price
@@ -800,6 +817,7 @@ export function ProductManager() {
                     />
 
                     <input
+                      aria-label={`Variant ${index + 1} color`}
                       placeholder="Color"
                       value={
                         variant.color
@@ -816,6 +834,7 @@ export function ProductManager() {
                     />
 
                     <input
+                      aria-label={`Variant ${index + 1} size`}
                       placeholder="Size"
                       value={
                         variant.size

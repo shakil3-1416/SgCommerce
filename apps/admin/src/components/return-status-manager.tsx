@@ -98,6 +98,7 @@ export function ReturnStatusManager({
 
   return (
     <select
+      aria-label={`Update status for return ${returnNumber}`}
       value=""
       disabled={saving}
       onChange={(event) => {

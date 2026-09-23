@@ -100,6 +100,7 @@ export function InventoryAdjuster({
               event.target.value,
             )
           }
+          aria-label={`Stock adjustment for ${sku}`}
           placeholder="+10 / -2"
           className="w-28 rounded-lg border border-[#e8e2ef] px-3 py-2"
         />

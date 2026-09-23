@@ -1,0 +1,9 @@
+.runtime
+test-results
+playwright-report
+coverage
+*.log
+.env
+.env.*
+!.env.vercel.example
+docker-compose*.yml

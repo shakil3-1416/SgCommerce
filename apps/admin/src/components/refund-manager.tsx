@@ -60,6 +60,7 @@ export function RefundManager({
 
   return (
     <select
+      aria-label={`Status for refund ${refundNumber}`}
       value={status}
       disabled={saving}
       onChange={(event) =>

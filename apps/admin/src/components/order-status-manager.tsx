@@ -88,6 +88,7 @@ export function OrderStatusManager({
   return (
     <div className="min-w-48 space-y-2">
       <select
+        aria-label={`Status for order ${orderNumber}`}
         value={status}
         onChange={(event) =>
           setStatus(
@@ -109,6 +110,7 @@ export function OrderStatusManager({
       </select>
 
       <input
+        aria-label={`Tracking number for order ${orderNumber}`}
         value={tracking}
         onChange={(event) =>
           setTracking(

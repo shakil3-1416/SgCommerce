@@ -6,6 +6,10 @@ import {
   useState,
 } from 'react';
 
+import {
+  confirmAction,
+} from '@/lib/confirm-action';
+
 
 interface Category {
   _id: string;
@@ -139,8 +143,17 @@ export function CategoryManager() {
     category: Category,
   ) {
     if (
-      !window.confirm(
-        `Delete "${category.name}"?`,
+      !(
+        await confirmAction({
+          title:
+            'Delete category?',
+          description:
+            `Delete "${category.name}"? This action cannot be undone.`,
+          confirmLabel:
+            'Delete category',
+          destructive:
+            true,
+        })
       )
     ) {
       return;

@@ -31,3 +31,6 @@ test-results/
 .env.*
 !.env.example
 !.env.production.example
+
+# Safe deployment template. Contains placeholders only.
+!.env.vercel.example

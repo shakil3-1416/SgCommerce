@@ -27,7 +27,7 @@ export function AdminLogout() {
     <button
       type="button"
       onClick={logout}
-      className="rounded-lg border border-[#e8e2ef] px-3 py-2 text-xs font-semibold"
+      className="min-h-11 rounded-lg border border-[#e8e2ef] px-3 py-2 text-xs font-semibold"
     >
       Sign out
     </button>

@@ -19,3 +19,41 @@ body {
   background: #faf8fc;
   color: #1f1235;
 }
+
+/*
+ * Production admin ergonomics.
+ * Keep operational controls usable on touch devices and
+ * prevent internal grids from expanding the document width.
+ */
+html,
+body {
+  max-width: 100%;
+}
+
+main {
+  min-width: 0;
+}
+
+main > * {
+  min-width: 0;
+}
+
+button {
+  min-height: 44px;
+}
+
+dialog::backdrop {
+  background: rgb(31 18 53 / 45%);
+}
+
+@media (max-width: 640px) {
+  body {
+    overflow-x: clip;
+  }
+
+  button,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]) {
+    min-height: 44px;
+  }
+}
