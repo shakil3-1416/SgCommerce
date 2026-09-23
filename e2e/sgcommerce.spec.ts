@@ -67,6 +67,7 @@ test(
           name: 'Add to cart',
         },
       )
+      .first()
       .click();
 
     await page.goto(
@@ -154,6 +155,10 @@ test(
     await expect(
       page.getByText(
         'Customer account',
+        {
+          exact:
+            true,
+        },
       ),
     ).toBeVisible();
   },
@@ -465,6 +470,7 @@ test(
             /add to cart/i,
         },
       )
+      .first()
       .click();
 
     await page.goto(
@@ -661,5 +667,102 @@ test(
     ).toEqual(
       [],
     );
+  },
+);
+
+
+test(
+  'catalog supports quick add and global footer',
+  async ({
+    page,
+  }) => {
+    await page.goto(
+      'http://localhost:3100/products?q=Classic%20Cotton%20T-Shirt',
+    );
+
+    await expect(
+      page.getByRole(
+        'contentinfo',
+      ),
+    ).toBeVisible();
+
+    const card =
+      page.locator(
+        '[data-product-card="classic-cotton-t-shirt"]',
+      );
+
+    await expect(
+      card,
+    ).toBeVisible();
+
+    await expect(
+      card.getByRole(
+        'button',
+        {
+          name:
+            'Add to cart',
+        },
+      ),
+    ).toBeVisible();
+
+    const before =
+      page.url();
+
+    await card
+      .getByRole(
+        'button',
+        {
+          name:
+            'Add to cart',
+        },
+      )
+      .first()
+      .click();
+
+    await expect(
+      card.getByRole(
+        'status',
+      ),
+    ).toContainText(
+      'Added to cart',
+    );
+
+    expect(
+      page.url(),
+    ).toBe(
+      before,
+    );
+
+    await page.goto(
+      'http://localhost:3100/cart',
+    );
+
+    await expect(
+      page.getByText(
+        'Classic Cotton T-Shirt',
+        {
+          exact:
+            false,
+        },
+      ).first(),
+    ).toBeVisible();
+
+    await expect(
+      page.getByRole(
+        'contentinfo',
+      ),
+    ).toBeVisible();
+
+    await page.reload();
+
+    await expect(
+      page.getByText(
+        'Classic Cotton T-Shirt',
+        {
+          exact:
+            false,
+        },
+      ).first(),
+    ).toBeVisible();
   },
 );
