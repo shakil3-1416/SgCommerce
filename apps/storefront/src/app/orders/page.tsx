@@ -8,13 +8,9 @@ import {
 } from 'react';
 
 import {
-  clearCustomerToken,
-  getCustomerToken,
+  clearLegacyCustomerToken,
+  customerFetch,
 } from '@/lib/customer-auth';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000/api/v1';
 
 interface OrderItem {
   productSlug: string;
@@ -230,41 +226,19 @@ export default function OrdersPage() {
   useEffect(
     () => {
       async function load() {
-        const token =
-          getCustomerToken();
-
-        if (!token) {
-          setAuthenticated(
-            false,
-          );
-
-          setLoading(
-            false,
-          );
-
-          return;
-        }
+        clearLegacyCustomerToken();
 
         try {
           const response =
-            await fetch(
-              `${API_URL}/auth/me/orders`,
-              {
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-
-                cache:
-                  'no-store',
-              },
+            await customerFetch(
+              '/auth/me/orders',
             );
 
           if (
             response.status ===
             401
           ) {
-            clearCustomerToken();
+            clearLegacyCustomerToken();
 
             setAuthenticated(
               false,

@@ -12,12 +12,8 @@ import {
 } from 'next/navigation';
 
 import {
-  setCustomerToken,
+  clearLegacyCustomerToken,
 } from '@/lib/customer-auth';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000/api/v1';
 
 export default function RegisterPage() {
   const router =
@@ -29,88 +25,105 @@ export default function RegisterPage() {
   ] =
     useState('');
 
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(false);
+
   async function submit(
     event:
       FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
+    setLoading(true);
     setError('');
+    clearLegacyCustomerToken();
 
     const form =
       new FormData(
         event.currentTarget,
       );
 
-    const response =
-      await fetch(
-        `${API_URL}/auth/register`,
-        {
-          method: 'POST',
+    try {
+      const response =
+        await fetch(
+          '/api/customer/register',
+          {
+            method: 'POST',
 
-          headers: {
-            'Content-Type':
-              'application/json',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+
+            body:
+              JSON.stringify({
+                name:
+                  String(
+                    form.get(
+                      'name',
+                    ) ?? '',
+                  ),
+
+                email:
+                  String(
+                    form.get(
+                      'email',
+                    ) ?? '',
+                  ),
+
+                phone:
+                  String(
+                    form.get(
+                      'phone',
+                    ) ?? '',
+                  ),
+
+                password:
+                  String(
+                    form.get(
+                      'password',
+                    ) ?? '',
+                  ),
+              }),
           },
+        );
 
-          body:
-            JSON.stringify({
-              name:
-                String(
-                  form.get(
-                    'name',
-                  ) ?? '',
-                ),
+      const body =
+        await response.json();
 
-              email:
-                String(
-                  form.get(
-                    'email',
-                  ) ?? '',
-                ),
+      if (!response.ok) {
+        setError(
+          Array.isArray(
+            body.message,
+          )
+            ? body.message.join(
+                ', ',
+              )
+            : body.message ??
+                'Registration failed',
+        );
 
-              phone:
-                String(
-                  form.get(
-                    'phone',
-                  ) ?? '',
-                ),
+        return;
+      }
 
-              password:
-                String(
-                  form.get(
-                    'password',
-                  ) ?? '',
-                ),
-            }),
-        },
+      router.push(
+        '/account',
       );
-
-    const body =
-      await response.json();
-
-    if (!response.ok) {
+      router.refresh();
+    } catch {
       setError(
-        Array.isArray(
-          body.message,
-        )
-          ? body.message.join(
-              ', ',
-            )
-          : body.message ??
-              'Registration failed',
+        'Unable to create your account right now',
       );
-
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setCustomerToken(
-      body.token,
-    );
-
-    router.push(
-      '/account',
-    );
   }
 
   return (
@@ -131,8 +144,9 @@ export default function RegisterPage() {
           <input
             required
             name="name"
-          aria-label="Full name"
+            aria-label="Full name"
             placeholder="Full name"
+            autoComplete="name"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
 
@@ -140,16 +154,18 @@ export default function RegisterPage() {
             required
             type="email"
             name="email"
-          aria-label="Email address"
+            aria-label="Email address"
             placeholder="Email"
+            autoComplete="email"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
 
           <input
             required
             name="phone"
-          aria-label="Phone number"
+            aria-label="Phone number"
             placeholder="Phone"
+            autoComplete="tel"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
 
@@ -158,19 +174,29 @@ export default function RegisterPage() {
             minLength={8}
             type="password"
             name="password"
-          aria-label="Password"
+            aria-label="Password"
             placeholder="Password"
+            autoComplete="new-password"
             className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
           />
 
           {error && (
-            <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            <p
+              role="alert"
+              className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+            >
               {error}
             </p>
           )}
 
-          <button className="w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white">
-            Create account
+          <button
+            disabled={loading}
+            aria-busy={loading}
+            className="w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading
+              ? 'Creating account...'
+              : 'Create account'}
           </button>
         </form>
 

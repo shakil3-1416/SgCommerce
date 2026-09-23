@@ -9,13 +9,9 @@ import {
 } from 'react';
 
 import {
-  clearCustomerToken,
-  getCustomerToken,
+  clearLegacyCustomerToken,
+  customerFetch,
 } from '@/lib/customer-auth';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000/api/v1';
 
 interface Account {
   customer: {
@@ -230,38 +226,9 @@ export default function ReturnsPage() {
     path: string,
     init?: RequestInit,
   ) {
-    const token =
-      getCustomerToken();
-
-    if (!token) {
-      throw new Error(
-        'NO_TOKEN',
-      );
-    }
-
-    return fetch(
-      `${API_URL}${path}`,
-      {
-        ...init,
-
-        headers: {
-          ...(init?.headers ??
-            {}),
-
-          Authorization:
-            `Bearer ${token}`,
-
-          ...(init?.body
-            ? {
-                'Content-Type':
-                  'application/json',
-              }
-            : {}),
-        },
-
-        cache:
-          'no-store',
-      },
+    return customerFetch(
+      path,
+      init,
     );
   }
 
@@ -275,20 +242,7 @@ export default function ReturnsPage() {
       );
     }
 
-    const token =
-      getCustomerToken();
-
-    if (!token) {
-      setAuthenticated(
-        false,
-      );
-
-      setLoading(
-        false,
-      );
-
-      return;
-    }
+    clearLegacyCustomerToken();
 
     try {
       const [
@@ -318,7 +272,7 @@ export default function ReturnsPage() {
         returnsResponse.status ===
           401
       ) {
-        clearCustomerToken();
+        clearLegacyCustomerToken();
 
         setAuthenticated(
           false,
@@ -571,8 +525,8 @@ export default function ReturnsPage() {
 
     try {
       const response =
-        await fetch(
-          `${API_URL}/returns`,
+        await customerFetch(
+          '/returns',
           {
             method:
               'POST',
@@ -603,6 +557,17 @@ export default function ReturnsPage() {
               }),
           },
         );
+
+      if (
+        response.status ===
+        401
+      ) {
+        setAuthenticated(
+          false,
+        );
+
+        return;
+      }
 
       if (
         !response.ok

@@ -19,10 +19,13 @@ Production environment:
 
 - `NEXT_PUBLIC_API_URL=https://api.<domain>/api/v1`
 - `INTERNAL_API_URL=https://api.<domain>/api/v1`
+- `CUSTOMER_COOKIE_SECURE=true`
 
 Recommended production domain:
 
 `shop.<domain>` or the apex domain.
+
+Customer authentication is handled by the storefront BFF. The Nest API bearer token is stored in a Secure, HttpOnly, SameSite=Lax host-only cookie and is never exposed to browser JavaScript.
 
 ### 2. Admin
 

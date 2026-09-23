@@ -110,6 +110,7 @@ services:
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       INTERNAL_API_URL: http://api:4000/api/v1
+      CUSTOMER_COOKIE_SECURE: ${CUSTOMER_COOKIE_SECURE:-true}
 
     depends_on:
       api:

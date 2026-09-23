@@ -12,12 +12,8 @@ import {
 } from 'next/navigation';
 
 import {
-  setCustomerToken,
+  clearLegacyCustomerToken,
 } from '@/lib/customer-auth';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000/api/v1';
 
 export default function LoginPage() {
   const router =
@@ -41,69 +37,73 @@ export default function LoginPage() {
   ) {
     event.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
     setLoading(true);
     setError('');
+    clearLegacyCustomerToken();
 
     const form =
       new FormData(
         event.currentTarget,
       );
 
-    const response =
-      await fetch(
-        `${API_URL}/auth/login`,
-        {
-          method: 'POST',
+    try {
+      const response =
+        await fetch(
+          '/api/customer/session',
+          {
+            method: 'POST',
 
-          headers: {
-            'Content-Type':
-              'application/json',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+
+            body:
+              JSON.stringify({
+                identifier:
+                  String(
+                    form.get(
+                      'identifier',
+                    ) ?? '',
+                  ),
+
+                password:
+                  String(
+                    form.get(
+                      'password',
+                    ) ?? '',
+                  ),
+              }),
           },
+        );
 
-          body:
-            JSON.stringify({
-              identifier:
-                String(
-                  form.get(
-                    'identifier',
-                  ) ?? '',
-                ),
+      const body =
+        await response.json();
 
-              password:
-                String(
-                  form.get(
-                    'password',
-                  ) ?? '',
-                ),
-            }),
-        },
+      if (!response.ok) {
+        setError(
+          body.message ??
+            'Customer login failed',
+        );
+
+        return;
+      }
+
+      router.push(
+        '/account',
       );
-
-    const body =
-      await response.json();
-
-    setLoading(false);
-
-    if (
-      !response.ok ||
-      body.user?.role !==
-        'customer'
-    ) {
+      router.refresh();
+    } catch {
       setError(
-        body.message ??
-          'Customer login failed',
+        'Unable to sign in right now',
       );
-
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setCustomerToken(
-      body.token,
-    );
-
-    router.push(
-      '/account',
-    );
   }
 
   return (
@@ -129,6 +129,7 @@ export default function LoginPage() {
             <input
               required
               name="identifier"
+              autoComplete="username"
               className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
             />
           </label>
@@ -143,19 +144,24 @@ export default function LoginPage() {
               minLength={8}
               type="password"
               name="password"
+              autoComplete="current-password"
               className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
             />
           </label>
 
           {error && (
-            <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            <p
+              role="alert"
+              className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
+            >
               {error}
             </p>
           )}
 
           <button
             disabled={loading}
-            className="w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white"
+            aria-busy={loading}
+            className="w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
               ? 'Signing in...'

@@ -11,13 +11,10 @@ import {
 } from 'next/navigation';
 
 import {
-  clearCustomerToken,
-  getCustomerToken,
+  clearLegacyCustomerToken,
+  customerFetch,
+  logoutCustomer,
 } from '@/lib/customer-auth';
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  'http://localhost:4000/api/v1';
 
 interface Address {
   id: string;
@@ -86,36 +83,22 @@ export default function AccountPage() {
     path: string,
     init?: RequestInit,
   ) {
-    const token =
-      getCustomerToken();
+    const response =
+      await customerFetch(
+        path,
+        init,
+      );
 
-    if (!token) {
+    if (
+      response.status ===
+      401
+    ) {
       throw new Error(
         'NO_TOKEN',
       );
     }
 
-    return fetch(
-      `${API_URL}${path}`,
-      {
-        ...init,
-
-        headers: {
-          ...(init?.headers ??
-            {}),
-
-          Authorization:
-            `Bearer ${token}`,
-
-          ...(init?.body
-            ? {
-                'Content-Type':
-                  'application/json',
-              }
-            : {}),
-        },
-      },
-    );
+    return response;
   }
 
   async function load() {
@@ -154,7 +137,7 @@ export default function AccountPage() {
         );
       }
     } catch {
-      clearCustomerToken();
+      clearLegacyCustomerToken();
       router.replace(
         '/login',
       );
@@ -325,7 +308,7 @@ export default function AccountPage() {
         cause.message ===
           'NO_TOKEN'
       ) {
-        clearCustomerToken();
+        clearLegacyCustomerToken();
 
         router.replace(
           '/login',
@@ -414,6 +397,20 @@ export default function AccountPage() {
         'Address removed.',
       );
     } catch (cause) {
+      if (
+        cause instanceof Error &&
+        cause.message ===
+          'NO_TOKEN'
+      ) {
+        clearLegacyCustomerToken();
+
+        router.replace(
+          '/login',
+        );
+
+        return;
+      }
+
       setError(
         cause instanceof Error
           ? cause.message
@@ -426,12 +423,13 @@ export default function AccountPage() {
     }
   }
 
-  function logout() {
-    clearCustomerToken();
+  async function logout() {
+    await logoutCustomer();
 
     router.push(
       '/',
     );
+    router.refresh();
   }
 
   if (!account) {

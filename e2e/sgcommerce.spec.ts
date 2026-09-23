@@ -93,7 +93,7 @@ test(
 );
 
 test(
-  'customer registration and account work',
+  'customer registration uses HttpOnly session and account works',
   async ({
     page,
   }) => {
@@ -102,6 +102,20 @@ test(
 
     await page.goto(
       'http://localhost:3100/register',
+    );
+
+    /*
+     * Simulate a browser that visited an older SgCommerce
+     * release. The new login/registration flow must remove
+     * the old Web Storage credential automatically.
+     */
+    await page.evaluate(
+      () => {
+        window.localStorage.setItem(
+          'sgcommerce-customer-token',
+          'legacy-browser-token',
+        );
+      },
     );
 
     await page
@@ -161,6 +175,69 @@ test(
         },
       ),
     ).toBeVisible();
+
+    /*
+     * Security regression:
+     * the authentication credential must exist only as an
+     * HttpOnly cookie. Browser JavaScript must not be able
+     * to retrieve it from localStorage or document.cookie.
+     */
+    const cookies =
+      await page.context()
+        .cookies(
+          'http://localhost:3100',
+        );
+
+    const sessionCookie =
+      cookies.find(
+        (cookie) =>
+          cookie.name ===
+          'sg_customer_session',
+      );
+
+    expect(
+      sessionCookie,
+    ).toBeTruthy();
+
+    expect(
+      sessionCookie?.httpOnly,
+    ).toBe(
+      true,
+    );
+
+    expect(
+      sessionCookie?.sameSite,
+    ).toBe(
+      'Lax',
+    );
+
+    expect(
+      await page.evaluate(
+        () =>
+          window.localStorage.getItem(
+            'sgcommerce-customer-token',
+          ),
+      ),
+    ).toBeNull();
+
+    const visibleCookies =
+      await page.evaluate(
+        () =>
+          document.cookie,
+      );
+
+    expect(
+      visibleCookies,
+    ).not.toContain(
+      'sg_customer_session=',
+    );
+
+    expect(
+      visibleCookies,
+    ).not.toContain(
+      sessionCookie?.value ??
+        'missing-session',
+    );
   },
 );
 
@@ -521,9 +598,14 @@ test(
         stamp,
       ).slice(-8)}`;
 
+    /*
+     * Register through the storefront BFF so the browser
+     * receives the same HttpOnly session cookie used in
+     * production.
+     */
     const registration =
       await page.request.post(
-        'http://localhost:4000/api/v1/auth/register',
+        'http://localhost:3100/api/customer/register',
         {
           data: {
             name:
@@ -543,24 +625,20 @@ test(
       registration.ok(),
     ).toBeTruthy();
 
-    const session =
-      await registration.json();
+    const cookies =
+      await page.context()
+        .cookies(
+          'http://localhost:3100',
+        );
 
     expect(
-      session.token,
+      cookies.some(
+        (cookie) =>
+          cookie.name ===
+            'sg_customer_session' &&
+          cookie.httpOnly,
+      ),
     ).toBeTruthy();
-
-    await page.addInitScript(
-      (
-        token,
-      ) => {
-        window.localStorage.setItem(
-          'sgcommerce-customer-token',
-          token,
-        );
-      },
-      session.token,
-    );
 
     await page.goto(
       'http://localhost:3100/orders',
@@ -642,18 +720,9 @@ test(
       0,
     );
 
-    const token =
-      session.token;
-
     const mine =
       await page.request.get(
-        'http://localhost:4000/api/v1/returns/me',
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
-        },
+        'http://localhost:3100/api/customer/backend/returns/me',
       );
 
     expect(
@@ -669,7 +738,6 @@ test(
     );
   },
 );
-
 
 test(
   'catalog supports quick add and global footer',
