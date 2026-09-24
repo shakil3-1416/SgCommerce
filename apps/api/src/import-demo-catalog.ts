@@ -819,19 +819,37 @@ async function main() {
         },
       });
 
+  const totalProductsBefore =
+    await ProductModel
+      .countDocuments({});
+
+  const inventoryBefore =
+    await InventoryModel
+      .countDocuments({});
+
+  const isPristineCatalog =
+    managedBefore === 0 &&
+    totalProductsBefore === 0 &&
+    activeBefore.length === 0 &&
+    categoriesBefore.length === 0 &&
+    inventoryBefore === 0;
+
+  const isLegacyLoadTestCatalog =
+    managedBefore === 0 &&
+    activeBefore.length === 400;
+
   if (
-    managedBefore ===
-      0 &&
-    activeBefore.length !==
-      400
+    managedBefore === 0 &&
+    !isPristineCatalog &&
+    !isLegacyLoadTestCatalog
   ) {
     throw new Error(
-      `Safety stop: expected the current 400-product load-test catalog before first migration, found ${activeBefore.length} active products instead`,
+      `Safety stop: expected either a pristine database or the current 400-product load-test catalog. Found ${totalProductsBefore} total products, ${activeBefore.length} active products, ${categoriesBefore.length} categories, and ${inventoryBefore} inventory rows instead`,
     );
   }
 
   if (
-    managedBefore === 0
+    isLegacyLoadTestCatalog
   ) {
     const oldIds =
       activeBefore.map(
@@ -876,6 +894,12 @@ async function main() {
 
     console.log(
       `Retired ${oldIds.length} synthetic load-test products from the customer catalog.`,
+    );
+  } else if (
+    isPristineCatalog
+  ) {
+    console.log(
+      'Initializing professional catalog in a pristine database.',
     );
   }
 
