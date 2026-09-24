@@ -80,6 +80,7 @@ export class OrdersService {
   async placeOrder(
     dto: PlaceOrderDto,
     idempotencyKey?: string,
+    customerId?: string,
   ) {
     const normalizedIdempotencyKey =
       idempotencyKey
@@ -210,11 +211,23 @@ export class OrdersService {
           .zone,
       );
 
-    const customer =
-      await this.customers
-        .upsertFromCheckout(
-          dto.customer,
-        );
+    /*
+     * Guest checkout resolves the customer from checkout
+     * contact information.
+     *
+     * Authenticated checkout must never infer ownership from
+     * a phone number. The signed-in customerId is authoritative.
+     */
+    const linkedCustomer =
+      customerId
+        ? await this.customers
+            .getById(
+              customerId,
+            )
+        : await this.customers
+            .upsertFromCheckout(
+              dto.customer,
+            );
 
     const adjusted:
       Array<{
@@ -260,17 +273,32 @@ export class OrdersService {
             null,
 
           customerId:
-            customer._id,
+            linkedCustomer._id,
 
+          /*
+           * Contact details are an order snapshot.
+           * Customers may edit these at checkout without
+           * changing which account owns the order.
+           */
           customer: {
             name:
-              customer.name,
+              dto.customer
+                .name
+                .trim(),
 
             phone:
-              customer.phone,
+              this.customers
+                .normalizePhone(
+                  dto.customer
+                    .phone,
+                ),
 
             email:
-              customer.email,
+              dto.customer
+                .email
+                ?.trim()
+                .toLowerCase() ??
+              '',
           },
 
           items: prepared,

@@ -3,12 +3,17 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
+
+import {
+  PlaceOrderDto,
+} from '../orders/dto/order.dto';
 
 import {
   AuthGuard,
@@ -108,6 +113,30 @@ export class AuthController {
       .removeAddress(
         request.user,
         addressId,
+      );
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('me/checkout')
+  checkout(
+    @Req()
+    request: any,
+
+    @Body()
+    dto:
+      PlaceOrderDto,
+
+    @Headers(
+      'x-idempotency-key',
+    )
+    idempotencyKey?:
+      string,
+  ) {
+    return this.auth
+      .placeMyOrder(
+        request.user,
+        dto,
+        idempotencyKey,
       );
   }
 

@@ -28,6 +28,10 @@ import {
 } from '../orders/orders.service';
 
 import {
+  PlaceOrderDto,
+} from '../orders/dto/order.dto';
+
+import {
   UsersService,
 } from '../users/users.service';
 
@@ -530,6 +534,32 @@ export class AuthService {
       .removeAddress(
         payload.customerId,
         addressId,
+      );
+  }
+
+  async placeMyOrder(
+    payload:
+      TokenPayload,
+
+    dto:
+      PlaceOrderDto,
+
+    idempotencyKey?:
+      string,
+  ) {
+    if (
+      payload.role !==
+        'customer' ||
+      !payload.customerId
+    ) {
+      throw new UnauthorizedException();
+    }
+
+    return this.orders
+      .placeOrder(
+        dto,
+        idempotencyKey,
+        payload.customerId,
       );
   }
 
