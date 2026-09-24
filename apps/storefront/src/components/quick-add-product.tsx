@@ -23,16 +23,9 @@ export function QuickAddProduct({
   product:
     Product;
 }) {
-  const cart =
-    useCart() as unknown as {
-      addItem:
-        (...args: any[]) =>
-          void;
-    };
-
   const {
     addItem,
-  } = cart;
+  } = useCart();
 
   const variants =
     useMemo(
@@ -162,7 +155,39 @@ export function QuickAddProduct({
         return;
       }
 
+      const price =
+        Number(
+          variant.price,
+        );
+
+      if (
+        !Number.isFinite(
+          available,
+        ) ||
+        available <= 0
+      ) {
+        setFailed(true);
+        setFeedback(
+          'This item is currently out of stock',
+        );
+        return;
+      }
+
+      if (
+        !Number.isFinite(
+          price,
+        ) ||
+        price < 0
+      ) {
+        throw new Error(
+          'Invalid product price',
+        );
+      }
+
       const payload = {
+        sku:
+          variant.sku,
+
         productId:
           product._id,
 
@@ -172,46 +197,22 @@ export function QuickAddProduct({
         productName:
           product.name,
 
-        sku:
-          variant.sku,
-
         variantTitle:
           variant.title,
 
-        unitPrice:
-          variant.price,
+        price,
 
-        price:
-          variant.price,
+        available:
+          Math.floor(
+            available,
+          ),
 
-        image:
-          product.images?.[0] ??
-          '',
-
-        quantity:
-          1,
-
-        product,
-        variant,
+        quantity: 1,
       };
 
-      /*
-       * Existing cart implementations commonly use
-       * either addItem(item) or addItem(item, quantity).
-       */
-      if (
-        addItem.length >=
-        2
-      ) {
-        addItem(
-          payload,
-          1,
-        );
-      } else {
-        addItem(
-          payload,
-        );
-      }
+      addItem(
+        payload,
+      );
 
       setFeedback(
         'Added to cart',

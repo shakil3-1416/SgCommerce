@@ -69,7 +69,85 @@ export function CartProvider({
           JSON.parse(stored);
 
         if (Array.isArray(parsed)) {
-          setItems(parsed);
+          const valid =
+            parsed.every(
+              (item) =>
+                item &&
+                typeof item ===
+                  'object' &&
+                typeof item.sku ===
+                  'string' &&
+                typeof item.productSlug ===
+                  'string' &&
+                typeof item.productName ===
+                  'string' &&
+                typeof item.variantTitle ===
+                  'string' &&
+                Number.isFinite(
+                  Number(
+                    item.price,
+                  ),
+                ) &&
+                Number(
+                  item.price,
+                ) >= 0 &&
+                Number.isFinite(
+                  Number(
+                    item.available,
+                  ),
+                ) &&
+                Number(
+                  item.available,
+                ) > 0 &&
+                Number.isFinite(
+                  Number(
+                    item.quantity,
+                  ),
+                ) &&
+                Number(
+                  item.quantity,
+                ) > 0,
+            );
+
+          if (valid) {
+            setItems(
+              parsed.map(
+                (item) => ({
+                  ...item,
+
+                  price:
+                    Number(
+                      item.price,
+                    ),
+
+                  available:
+                    Math.floor(
+                      Number(
+                        item.available,
+                      ),
+                    ),
+
+                  quantity:
+                    Math.min(
+                      Math.floor(
+                        Number(
+                          item.quantity,
+                        ),
+                      ),
+                      Math.floor(
+                        Number(
+                          item.available,
+                        ),
+                      ),
+                    ),
+                }),
+              ),
+            );
+          } else {
+            window.localStorage.removeItem(
+              STORAGE_KEY,
+            );
+          }
         }
       }
     } catch {
@@ -100,15 +178,42 @@ export function CartProvider({
       (
         incoming: AddCartItem,
       ) => {
-        if (incoming.available <= 0) {
-          return;
-        }
+        const available =
+          Math.floor(
+            Number(
+              incoming.available,
+            ),
+          );
+
+        const price =
+          Number(
+            incoming.price,
+          );
 
         const requested =
-          Math.max(
-            1,
-            incoming.quantity ?? 1,
+          Math.floor(
+            Number(
+              incoming.quantity ??
+                1,
+            ),
           );
+
+        if (
+          !Number.isFinite(
+            available,
+          ) ||
+          available <= 0 ||
+          !Number.isFinite(
+            price,
+          ) ||
+          price < 0 ||
+          !Number.isFinite(
+            requested,
+          ) ||
+          requested <= 0
+        ) {
+          return;
+        }
 
         setItems((current) => {
           const existing =
@@ -123,10 +228,15 @@ export function CartProvider({
               ...current,
               {
                 ...incoming,
+
+                price,
+
+                available,
+
                 quantity:
                   Math.min(
                     requested,
-                    incoming.available,
+                    available,
                   ),
               },
             ];
@@ -143,14 +253,15 @@ export function CartProvider({
 
               return {
                 ...item,
-                available:
-                  incoming.available,
+                available,
+
+                price,
 
                 quantity:
                   Math.min(
                     item.quantity +
                       requested,
-                    incoming.available,
+                    available,
                   ),
               };
             },
