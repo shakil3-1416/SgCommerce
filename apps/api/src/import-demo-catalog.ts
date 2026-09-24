@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 
+import { readFile } from 'node:fs/promises';
+
 import {
   writeFile,
 } from 'node:fs/promises';
@@ -200,31 +202,18 @@ function uniqueHttpsImages(
   );
 }
 
-async function fetchJson<T>(
-  url: string,
+async function readCatalogSnapshot<T>(
+  relativePath: string,
 ): Promise<T> {
-  const response =
-    await fetch(
-      url,
-      {
-        signal:
-          AbortSignal.timeout(
-            30000,
-          ),
-      },
+  const body =
+    await readFile(
+      `${process.cwd()}/${relativePath}`,
+      'utf8',
     );
 
-  if (
-    !response.ok
-  ) {
-    throw new Error(
-      `Catalog source failed: ${response.status} ${url}`,
-    );
-  }
-
-  return (
-    response.json() as Promise<T>
-  );
+  return JSON.parse(
+    body,
+  ) as T;
 }
 
 function curatedProducts():
@@ -598,7 +587,7 @@ async function main() {
   }
 
   console.log(
-    'Fetching product-specific demo catalog sources...',
+    'Loading bundled product catalog snapshots...',
   );
 
   const [
@@ -606,14 +595,14 @@ async function main() {
     fake,
   ] =
     await Promise.all([
-      fetchJson<DummyJsonResponse>(
-        'https://dummyjson.com/products?limit=0',
+      readCatalogSnapshot<DummyJsonResponse>(
+        'src/catalog-snapshots/dummyjson-products.json',
       ),
 
-      fetchJson<
+      readCatalogSnapshot<
         FakeStoreProduct[]
       >(
-        'https://fakestoreapi.com/products',
+        'src/catalog-snapshots/fakestore-products.json',
       ),
     ]);
 
