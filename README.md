@@ -4,7 +4,43 @@ SgCommerce is a standalone full-stack e-commerce platform for customer shopping,
 
 The current release focuses on the standalone commerce system. SupGent integration will be added in a later phase.
 
-## Applications
+## Production
+
+SgCommerce is deployed as three production applications on Vercel.
+
+| Application | Production URL | Purpose |
+| --- | --- | --- |
+| **Customer Storefront** | [sg-commerce-storefront.vercel.app](https://sg-commerce-storefront.vercel.app) | Public shopping experience, customer accounts, cart, checkout, orders and returns |
+| **Merchant Admin** | [sg-commerce-admin.vercel.app](https://sg-commerce-admin.vercel.app) | Catalog, inventory, orders, customers, returns and refund administration |
+| **REST API** | [sg-commerce-api.vercel.app/api/v1](https://sg-commerce-api.vercel.app/api/v1) | NestJS commerce API used by the storefront and merchant admin |
+
+### Customer Storefront
+
+The main customer-facing application is:
+
+**https://sg-commerce-storefront.vercel.app**
+
+Customers can browse products, maintain a cart, create an account, sign in, manage saved delivery addresses, place orders and view their order history.
+
+### Merchant Admin
+
+The merchant administration application is:
+
+**https://sg-commerce-admin.vercel.app**
+
+The admin application is intended for authorized merchant staff and provides operational access to products, categories, inventory, orders, customers, returns and refunds.
+
+### API
+
+The production API base URL is:
+
+**https://sg-commerce-api.vercel.app/api/v1**
+
+---
+
+## Local Development
+
+
 
 | Application | Local URL |
 |---|---|
