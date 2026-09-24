@@ -207,6 +207,10 @@ export function QuickAddProduct({
             available,
           ),
 
+        image:
+          product.images?.[0] ??
+          '',
+
         quantity: 1,
       };
 

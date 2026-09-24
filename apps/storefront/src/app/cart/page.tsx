@@ -6,6 +6,10 @@ import {
   useCart,
 } from '@/components/cart-provider';
 
+import {
+  ProductImage,
+} from '@/components/product-image';
+
 function money(
   value: number,
 ) {
@@ -66,8 +70,24 @@ export default function CartPage() {
                   className="rounded-2xl border border-[#e8e2ef] bg-white p-5"
                 >
                   <div className="flex justify-between gap-5">
-                    <div>
-                      <Link
+                    <div className="flex min-w-0 gap-4">
+                      <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-[#f2edf8]">
+                        <ProductImage
+                          src={
+                            item.image
+                          }
+                          alt={
+                            item.productName
+                          }
+                          fallbackText={
+                            item.productName
+                          }
+                          className="h-full w-full object-contain p-2"
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <Link
                         href={`/products/${item.productSlug}`}
                         className="text-lg font-bold text-[#1f1235] hover:text-[#4c2a7d]"
                       >
@@ -78,12 +98,13 @@ export default function CartPage() {
                         {item.variantTitle}
                       </p>
 
-                      <p className="mt-1 text-xs text-[#8a8092]">
-                        SKU {item.sku}
-                      </p>
+                        <p className="mt-1 text-xs text-[#8a8092]">
+                          SKU {item.sku}
+                        </p>
+                      </div>
                     </div>
 
-                    <p className="font-bold text-[#1f1235]">
+                    <p className="shrink-0 font-bold text-[#1f1235]">
                       {money(
                         item.price *
                           item.quantity,

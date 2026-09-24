@@ -122,7 +122,12 @@ export function ProductPurchasePanel({
         selectedVariant.title,
       price:
         selectedVariant.price,
+
       available,
+
+      image:
+        product.images?.[0] ??
+        '',
     });
 
     setAdded(true);

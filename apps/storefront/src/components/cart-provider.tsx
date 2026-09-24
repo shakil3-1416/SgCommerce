@@ -83,6 +83,12 @@ export function CartProvider({
                   'string' &&
                 typeof item.variantTitle ===
                   'string' &&
+                (
+                  item.image ===
+                    undefined ||
+                  typeof item.image ===
+                    'string'
+                ) &&
                 Number.isFinite(
                   Number(
                     item.price,
