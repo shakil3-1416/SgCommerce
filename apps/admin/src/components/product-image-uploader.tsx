@@ -1,6 +1,6 @@
 'use client';
 
-import { upload } from '@vercel/blob/client';
+import { uploadPresigned } from '@vercel/blob/client';
 import {
   useEffect,
   useId,
@@ -14,6 +14,7 @@ import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_IMAGE_TYPES_LABEL,
   describeBytes,
+  explainUploadFailure,
   isAllowedImageType,
   MAX_IMAGE_BYTES,
   MAX_IMAGE_MB,
@@ -199,7 +200,7 @@ export function ProductImageUploader({
       });
 
       try {
-        const blob = await upload(uploadPathFor(file.name), file, {
+        const blob = await uploadPresigned(uploadPathFor(file.name), file, {
           access: 'public',
           handleUploadUrl: UPLOAD_ENDPOINT,
           onUploadProgress: ({ percentage }) => {
@@ -216,14 +217,19 @@ export function ProductImageUploader({
         }
 
         commit([...latest.current, blob.url]);
-      } catch {
+      } catch (error) {
+        // Find out why, so the message names the real cause.
+        const reason = await explainUploadFailure(error, () =>
+          fetch(UPLOAD_ENDPOINT, { cache: 'no-store' }),
+        );
+
         if (!mounted.current) {
           return;
         }
 
         setProblems((current) => [
           ...current,
-          `"${file.name}" could not be uploaded. Check your connection and that you are still signed in, then upload it again.`,
+          `"${file.name}" could not be uploaded. ${reason}`,
         ]);
       }
     }

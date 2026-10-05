@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 
 import {
   describeBytes,
+  explainUploadFailure,
   isAllowedImageType,
   isAllowedUploadPath,
   MAX_IMAGE_BYTES,
@@ -111,5 +112,64 @@ describe('moveImage', () => {
     moveImage(original, 0, 1);
 
     assert.deepEqual(original, ['a', 'b', 'c']);
+  });
+});
+
+describe('explainUploadFailure', () => {
+  const answer = (status: number, body: unknown) => async () =>
+    new Response(typeof body === 'string' ? body : JSON.stringify(body), { status });
+  const sdkError = new Error('Vercel Blob: Failed to retrieve the client token');
+
+  it('passes on the reason the admin app gives when it cannot prepare an upload', async () => {
+    assert.equal(
+      await explainUploadFailure(sdkError, answer(503, { error: 'Photo storage is not connected to the admin.' })),
+      'Photo storage is not connected to the admin.',
+    );
+    assert.equal(
+      await explainUploadFailure(sdkError, answer(401, { error: 'Sign in again to upload images.' })),
+      'Sign in again to upload images.',
+    );
+  });
+
+  it('gives a general instruction when the admin app answers without a reason', async () => {
+    assert.equal(
+      await explainUploadFailure(sdkError, answer(500, '<html>error</html>')),
+      'The admin could not prepare the upload. Sign in again, then upload it again.',
+    );
+  });
+
+  it('points at the connection when the admin app cannot be reached', async () => {
+    assert.equal(
+      await explainUploadFailure(sdkError, async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+      'Check your internet connection, then upload it again.',
+    );
+  });
+
+  it('recognises a store that was created as Private', async () => {
+    assert.equal(
+      await explainUploadFailure(
+        new Error('Vercel Blob: Cannot use public access on a private store. The store is configured with private access.'),
+        answer(200, { ready: true }),
+      ),
+      'The photo store in Vercel is set to Private. Product photos need a store with Public access.',
+    );
+  });
+
+  it('passes on what the storage service said when the admin side is ready', async () => {
+    assert.equal(
+      await explainUploadFailure(new Error('Vercel Blob: This store has been suspended.'), answer(200, { ready: true })),
+      'The storage service refused it: This store has been suspended.',
+    );
+  });
+
+  it('points at the connection when the upload itself was cut off', async () => {
+    for (const error of [new TypeError('Failed to fetch'), new Error(''), 'not an error', undefined]) {
+      assert.equal(
+        await explainUploadFailure(error, answer(200, { ready: true })),
+        'Check your internet connection, then upload it again.',
+      );
+    }
   });
 });

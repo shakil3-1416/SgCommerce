@@ -42,12 +42,14 @@ Production environment:
 - `API_URL=https://api.<domain>/api/v1`
 - `NEXT_PUBLIC_API_URL=https://api.<domain>/api/v1`
 - `ADMIN_COOKIE_SECURE=true`
-- `BLOB_READ_WRITE_TOKEN=<added by Vercel>`
+- `BLOB_STORE_ID=<added by Vercel when the Blob store is connected>`
 
 Product images are uploaded from the admin to Vercel Blob. Create a
-Blob store with **public** access from this project's Storage tab;
-Vercel then adds `BLOB_READ_WRITE_TOKEN` to the project. Redeploy the
-admin afterwards. See `docs/PRODUCT_IDS_AND_IMAGES.md`.
+Blob store with **public** access and connect it to this project
+(Storage, the store, Connect Project). Vercel then adds `BLOB_STORE_ID`
+to the project and supplies a short-lived identity token to the
+function by itself, so no long-lived storage token is needed. Redeploy
+the admin afterwards. See `docs/PRODUCT_IDS_AND_IMAGES.md`.
 
 Recommended production domain:
 

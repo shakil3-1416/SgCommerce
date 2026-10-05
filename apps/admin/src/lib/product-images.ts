@@ -101,3 +101,47 @@ export function moveImage(images: readonly string[], index: number, offset: numb
 
   return next;
 }
+
+/**
+ * Why an upload failed, in words an admin can act on.
+ *
+ * The storage client only reports that something went wrong. So the status
+ * endpoint (GET on UPLOAD_ENDPOINT) is asked first: it knows whether the
+ * session is valid and whether photo storage is connected. If that side is
+ * fine, the refusal came from the storage service and its own message is
+ * passed on.
+ *
+ * `checkStatus` is passed in so this can be tested without a browser.
+ */
+export async function explainUploadFailure(
+  error: unknown,
+  checkStatus: () => Promise<Response>,
+): Promise<string> {
+  let status: Response;
+
+  try {
+    status = await checkStatus();
+  } catch {
+    return 'Check your internet connection, then upload it again.';
+  }
+
+  if (!status.ok) {
+    const body = (await status.json().catch(() => null)) as { error?: unknown } | null;
+
+    return typeof body?.error === 'string' && body.error !== ''
+      ? body.error
+      : 'The admin could not prepare the upload. Sign in again, then upload it again.';
+  }
+
+  const detail = error instanceof Error ? error.message.replace(/^Vercel Blob:\s*/i, '').trim() : '';
+
+  if (/private/i.test(detail)) {
+    return 'The photo store in Vercel is set to Private. Product photos need a store with Public access.';
+  }
+
+  if (detail === '' || /failed to fetch|network/i.test(detail)) {
+    return 'Check your internet connection, then upload it again.';
+  }
+
+  return `The storage service refused it: ${detail}`;
+}

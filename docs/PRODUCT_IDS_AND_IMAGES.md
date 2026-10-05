@@ -55,18 +55,26 @@ anything and can be run more than once. Run it again after
 
 The admin uploads product images to Vercel Blob. The browser sends the
 file straight to storage; `apps/admin/src/app/api/uploads/product-image`
-only checks that the caller is a signed-in admin and then issues a
-short-lived token for one image upload. The product stores the image
-URLs in `images`, as before.
+only checks that the caller is a signed-in admin and then hands back a
+short-lived upload address for one image (Vercel Blob's presigned upload
+flow, `handleUploadPresigned`). The product stores the image URLs in
+`images`, as before.
 
 Setup:
 
-1. In Vercel, open the admin project, then Storage, and create a Blob
-   store with **public** access. Vercel adds `BLOB_READ_WRITE_TOKEN` to
-   the project.
+1. In Vercel, create a Blob store with **public** access and connect it
+   to the admin project (Storage, the store, Connect Project). Vercel
+   adds `BLOB_STORE_ID` to the project and supplies a short-lived
+   identity token to the function by itself; no `BLOB_READ_WRITE_TOKEN`
+   is needed there.
 2. Redeploy the admin.
-3. For local development, put the same token in
+3. Outside Vercel (local development, Docker), set
+   `BLOB_READ_WRITE_TOKEN` instead, for example in
    `apps/admin/.env.local`.
+
+When an upload fails, the uploader asks `GET` on the same route why, and
+shows the answer: not signed in, storage not connected, or the storage
+service's own message.
 
 Limits are in `apps/admin/src/lib/product-images.ts`: JPG, PNG, WebP or
 AVIF, 8 MB per file, 8 images per product. Removing an image from a
