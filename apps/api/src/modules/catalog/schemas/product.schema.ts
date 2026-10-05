@@ -134,6 +134,29 @@ export class Product {
     trim: true,
   })
   externalId?: string;
+
+  /*
+   * Business identifier shown to staff and printed on documents, for
+   * example "SGP-000217". Issued once by ProductIdentityService and
+   * never changed afterwards. MongoDB's _id stays the internal key.
+   */
+  @Prop({
+    type: String,
+    trim: true,
+    immutable: true,
+  })
+  productCode?: string;
+
+  /*
+   * Highest variant number this product has ever used in a generated
+   * SKU. Keeps the SKU of a deleted variant from being issued again.
+   */
+  @Prop({
+    type: Number,
+    default: 0,
+    min: 0,
+  })
+  lastVariantNumber!: number;
 }
 
 export const ProductSchema =
@@ -180,6 +203,26 @@ ProductSchema.index(
         $type: 'string',
       },
       externalId: {
+        $type: 'string',
+      },
+    },
+  },
+);
+
+/*
+ * Partial, so products that do not have a code yet (created before codes
+ * existed, or imported by a seed script) do not collide with each other.
+ * backfill-business-ids.ts creates the same index under the same name.
+ */
+ProductSchema.index(
+  {
+    productCode: 1,
+  },
+  {
+    name: 'productCode_unique',
+    unique: true,
+    partialFilterExpression: {
+      productCode: {
         $type: 'string',
       },
     },

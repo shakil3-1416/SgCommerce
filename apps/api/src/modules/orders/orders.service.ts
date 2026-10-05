@@ -31,6 +31,14 @@ import {
 } from './dto/order.dto';
 
 import {
+  SequencesService,
+} from '../sequences/sequences.service';
+
+import {
+  deliveryZoneFor,
+} from '../../common/delivery-zone';
+
+import {
   Order,
   OrderDocument,
 } from './schemas/order.schema';
@@ -50,23 +58,10 @@ export class OrdersService {
 
     private readonly customers:
       CustomersService,
+
+    private readonly sequences:
+      SequencesService,
   ) {}
-
-  private generateOrderNumber() {
-    const date =
-      new Date()
-        .toISOString()
-        .slice(0, 10)
-        .replace(/-/g, '');
-
-    const random =
-      Math.random()
-        .toString(36)
-        .slice(2, 8)
-        .toUpperCase();
-
-    return `SG-${date}-${random}`;
-  }
 
   private shippingFee(
     zone: string,
@@ -176,6 +171,9 @@ export class OrdersService {
             String(product._id),
           ),
 
+        productCode:
+          product.productCode ?? '',
+
         productSlug:
           product.slug,
 
@@ -205,10 +203,18 @@ export class OrdersService {
         0,
       );
 
+    /*
+     * The delivery zone comes from the district on the address, never
+     * from the zone the browser sent.
+     */
+    const deliveryZone =
+      deliveryZoneFor(
+        dto.shippingAddress.city,
+      );
+
     const shippingFee =
       this.shippingFee(
-        dto.shippingAddress
-          .zone,
+        deliveryZone,
       );
 
     /*
@@ -228,6 +234,17 @@ export class OrdersService {
             .upsertFromCheckout(
               dto.customer,
             );
+
+    /*
+     * Sequential and guaranteed unique: one atomic increment on the
+     * `order` counter. It is taken before stock is touched, so every
+     * stock movement of this order can name the order it belongs to.
+     * If the order then fails, the number is simply not used.
+     */
+    const orderNumber =
+      await this.sequences.nextCode(
+        'order',
+      );
 
     const adjusted:
       Array<{
@@ -250,7 +267,7 @@ export class OrdersService {
               'order_placed',
 
             reference:
-              'checkout',
+              orderNumber,
           },
         );
 
@@ -260,9 +277,6 @@ export class OrdersService {
             item.quantity,
         });
       }
-
-      const orderNumber =
-        this.generateOrderNumber();
 
       const order =
         await this.orderModel.create({
@@ -328,8 +342,7 @@ export class OrdersService {
               '',
 
             zone:
-              dto.shippingAddress
-                .zone,
+              deliveryZone,
           },
 
           subtotal,
@@ -345,6 +358,19 @@ export class OrdersService {
             'pending',
 
           status: 'pending',
+
+          statusHistory: [
+            {
+              status: 'pending',
+              paymentStatus: 'pending',
+              trackingNumber: '',
+              changedBy:
+                customerId
+                  ? 'customer'
+                  : 'guest',
+              at: new Date(),
+            },
+          ],
         });
 
       return order.toObject();
@@ -364,7 +390,7 @@ export class OrdersService {
                 'order_rollback',
 
               reference:
-                'checkout_failed',
+                orderNumber,
             },
           )
           .catch(
@@ -457,9 +483,8 @@ export class OrdersService {
     phone: string,
   ) {
     const normalizedPhone =
-      phone
-        .trim()
-        .replace(/\s+/g, '');
+      this.customers
+        .normalizePhone(phone);
 
     const order =
       await this.orderModel
@@ -540,11 +565,16 @@ export class OrdersService {
   async updateStatus(
     orderNumber: string,
     dto: UpdateOrderStatusDto,
+    changedBy = 'admin',
   ) {
     const normalizedOrderNumber =
       orderNumber
         .trim()
         .toUpperCase();
+
+    /* The history requires a name; an empty one falls back to 'admin'. */
+    const actor =
+      changedBy.trim() || 'admin';
 
     const current =
       await this.orderModel
@@ -641,6 +671,30 @@ export class OrdersService {
           sameStatusUpdate,
         ).length > 0
       ) {
+        const nextTrackingNumber =
+          (sameStatusUpdate.trackingNumber as
+            | string
+            | undefined) ??
+          current.trackingNumber ??
+          '';
+
+        const nextPaymentStatus =
+          (sameStatusUpdate.paymentStatus as
+            | string
+            | undefined) ??
+          current.paymentStatus;
+
+        /*
+         * A retry that changes nothing must not add a line to the
+         * history; only a real change of tracking number or payment
+         * status is recorded.
+         */
+        const somethingChanged =
+          nextTrackingNumber !==
+            (current.trackingNumber ?? '') ||
+          nextPaymentStatus !==
+            current.paymentStatus;
+
         result =
           await this.orderModel
             .findOneAndUpdate(
@@ -651,6 +705,23 @@ export class OrdersService {
               {
                 $set:
                   sameStatusUpdate,
+
+                ...(somethingChanged
+                  ? {
+                      $push: {
+                        statusHistory: {
+                          status:
+                            current.status,
+                          paymentStatus:
+                            nextPaymentStatus,
+                          trackingNumber:
+                            nextTrackingNumber,
+                          changedBy: actor,
+                          at: new Date(),
+                        },
+                      },
+                    }
+                  : {}),
               },
               {
                 new: true,
@@ -744,6 +815,29 @@ export class OrdersService {
           {
             $set:
               update,
+
+            $push: {
+              statusHistory: {
+                status:
+                  dto.status,
+
+                paymentStatus:
+                  (update.paymentStatus as
+                    | string
+                    | undefined) ??
+                  current.paymentStatus,
+
+                trackingNumber:
+                  (update.trackingNumber as
+                    | string
+                    | undefined) ??
+                  current.trackingNumber ??
+                  '',
+
+                changedBy: actor,
+                at: new Date(),
+              },
+            },
           },
           {
             new: true,

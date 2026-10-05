@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -99,11 +100,20 @@ export class OrdersController {
     @Body()
     dto:
       UpdateOrderStatusDto,
+
+    @Req()
+    request: any,
   ) {
+    /*
+     * AuthGuard has put the signed-in admin on the request. Their
+     * email is recorded in the order's status history.
+     */
     return this.orders
       .updateStatus(
         orderNumber,
         dto,
+        request.user?.email ||
+          'admin',
       );
   }
 }

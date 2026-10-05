@@ -36,6 +36,10 @@ import {
   UpdateProductDto,
 } from './dto/product.dto';
 
+import {
+  ProductIdentityService,
+} from './product-identity.service';
+
 @Injectable()
 export class CatalogService {
   constructor(
@@ -44,6 +48,8 @@ export class CatalogService {
 
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+
+    private readonly identity: ProductIdentityService,
   ) {}
 
   private slugify(value: string): string {
@@ -56,6 +62,21 @@ export class CatalogService {
 
   private normalizeSku(value: string): string {
     return value.trim().toUpperCase();
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&',
+    );
+  }
+
+  private isDuplicateKeyError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: unknown }).code === 11000
+    );
   }
 
   async createCategory(dto: CreateCategoryDto) {
@@ -230,92 +251,48 @@ export class CatalogService {
     return category;
   }
 
-  private async assertUniqueVariants(
-    variants: Array<{ sku: string }>,
-    excludeProductId?: string,
-  ) {
-    const skus =
-      variants.map((variant) =>
-        this.normalizeSku(variant.sku),
-      );
-
-    if (new Set(skus).size !== skus.length) {
-      throw new BadRequestException(
-        'Duplicate SKU found in product variants',
-      );
-    }
-
-    const filter: FilterQuery<ProductDocument> = {
-      'variants.sku': {
-        $in: skus,
-      },
-    };
-
-    if (excludeProductId) {
-      filter._id = {
-        $ne: excludeProductId,
-      };
-    }
-
-    const collision =
-      await this.productModel
-        .findOne(filter)
-        .select({
-          name: 1,
-          'variants.sku': 1,
-        })
-        .lean();
-
-    if (collision) {
-      throw new ConflictException(
-        'One or more SKUs already exist',
-      );
-    }
-  }
-
   async createProduct(dto: CreateProductDto) {
     const category =
       await this.resolveCategory(dto.category);
 
-    const slug =
-      this.slugify(dto.slug ?? dto.name);
-
-    if (!slug) {
-      throw new BadRequestException(
-        'Product slug cannot be empty',
-      );
-    }
-
-    const slugExists =
-      await this.productModel.exists({
-        slug,
+    /*
+     * Product code, slug and SKUs come from one place. Typed values are
+     * validated first, so a rejected request does not use up a product
+     * code.
+     */
+    const identity =
+      await this.identity.assign({
+        name: dto.name,
+        slug: dto.slug,
+        variants: dto.variants,
       });
 
-    if (slugExists) {
-      throw new ConflictException(
-        `Product slug "${slug}" already exists`,
-      );
-    }
-
-    await this.assertUniqueVariants(
-      dto.variants,
-    );
-
     const variants =
-      dto.variants.map((variant) => ({
+      dto.variants.map((variant, index) => ({
         ...variant,
-        sku: this.normalizeSku(
-          variant.sku,
-        ),
+        sku: identity.skus[index],
       }));
 
     const product =
-      await this.productModel.create({
-        ...dto,
-        category: category._id,
-        slug,
-        variants,
-      });
+      await this.productModel
+        .create({
+          ...dto,
+          category: category._id,
+          slug: identity.slug,
+          productCode: identity.productCode,
+          lastVariantNumber:
+            identity.lastVariantNumber,
+          variants,
+        })
+        .catch((error: unknown) => {
+          if (this.isDuplicateKeyError(error)) {
+            throw new ConflictException(
+              'Another product was saved with the same slug or SKU at the same moment. Save again.',
+            );
+          }
+
+          throw error;
+        });
 
     return this.productModel
       .findById(product._id)
@@ -377,12 +354,9 @@ export class CatalogService {
       query.brand?.trim()
     ) {
       const escapedBrand =
-        query.brand
-          .trim()
-          .replace(
-            /[.*+?^${}()|[\]\\]/g,
-            '\\$&',
-          );
+        this.escapeRegex(
+          query.brand.trim(),
+        );
 
       filter.brand = {
         $regex:
@@ -428,11 +402,21 @@ export class CatalogService {
     if (
       query.q?.trim()
     ) {
+      /*
+       * The search text is matched literally. Without escaping, a
+       * visitor could send their own regular expression to the
+       * database through this public endpoint.
+       */
+      const search =
+        this.escapeRegex(
+          query.q.trim(),
+        );
+
       filter.$or = [
         {
           name: {
             $regex:
-              query.q.trim(),
+              search,
             $options:
               'i',
           },
@@ -440,7 +424,7 @@ export class CatalogService {
         {
           description: {
             $regex:
-              query.q.trim(),
+              search,
             $options:
               'i',
           },
@@ -448,7 +432,7 @@ export class CatalogService {
         {
           brand: {
             $regex:
-              query.q.trim(),
+              search,
             $options:
               'i',
           },
@@ -456,7 +440,15 @@ export class CatalogService {
         {
           'variants.sku': {
             $regex:
-              query.q.trim(),
+              search,
+            $options:
+              'i',
+          },
+        },
+        {
+          productCode: {
+            $regex:
+              search,
             $options:
               'i',
           },
@@ -598,65 +590,80 @@ export class CatalogService {
       update.category = category._id;
     }
 
-    if (dto.slug || dto.name) {
-      const slug =
-        this.slugify(
-          dto.slug ??
-            dto.name ??
-            existing.name,
+    /*
+     * The slug only changes when one is sent explicitly. Renaming a
+     * product keeps its address, so links and search results that
+     * point at it keep working.
+     */
+    if (dto.slug !== undefined) {
+      update.slug =
+        await this.identity.typedSlug(
+          dto.slug,
+          id,
         );
-
-      const collision =
-        await this.productModel.exists({
-          _id: {
-            $ne: id,
-          },
-          slug,
-        });
-
-      if (collision) {
-        throw new ConflictException(
-          'Product slug already exists',
-        );
-      }
-
-      update.slug = slug;
     }
 
     if (dto.variants) {
-      await this.assertUniqueVariants(
-        dto.variants,
-        id,
-      );
+      const productCode =
+        await this.identity.ensureProductCode(
+          existing,
+        );
+
+      const {
+        skus,
+        lastVariantNumber,
+      } =
+        await this.identity.completeVariantSkus({
+          productId: id,
+          productCode,
+          variants: dto.variants,
+          lastVariantNumber:
+            existing.lastVariantNumber,
+          currentSkus:
+            existing.variants.map(
+              (variant) => variant.sku,
+            ),
+        });
 
       update.variants =
         dto.variants.map(
-          (variant) => ({
+          (variant, index) => ({
             ...variant,
-            sku: this.normalizeSku(
-              variant.sku,
-            ),
+            sku: skus[index],
           }),
         );
+
+      update.lastVariantNumber =
+        lastVariantNumber;
     }
 
-    const product =
-      await this.productModel
-        .findByIdAndUpdate(
-          id,
-          update,
-          {
-            new: true,
-            runValidators: true,
-          },
-        )
-        .populate(
-          'category',
-          'name slug active',
-        )
-        .lean();
+    try {
+      const product =
+        await this.productModel
+          .findByIdAndUpdate(
+            id,
+            update,
+            {
+              new: true,
+              runValidators: true,
+            },
+          )
+          .populate(
+            'category',
+            'name slug active',
+          )
+          .lean();
 
-    return product;
+      return product;
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        throw new ConflictException(
+          'Another product was saved with the same slug or SKU at the same moment. Save again.',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async deleteProduct(id: string) {

@@ -103,9 +103,11 @@ The administration application includes:
 
 - Admin authentication
 - Product management
+- Automatic product codes and SKUs
 - Category management
-- Multiple product image URLs
+- Product image upload
 - Variant management
+- Opening stock when a product is created
 - Inventory management
 - Order management
 - Tracking updates

@@ -72,11 +72,16 @@ export class AddAddressDto {
   @IsString()
   postalCode?: string;
 
+  /*
+   * Accepted for older pages, but ignored: the server decides the
+   * zone from the district (city).
+   */
+  @IsOptional()
   @IsIn([
     'inside_dhaka',
     'outside_dhaka',
   ])
-  zone!:
+  zone?:
     | 'inside_dhaka'
     | 'outside_dhaka';
 

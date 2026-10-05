@@ -7,6 +7,10 @@ import {
 } from 'react';
 
 import {
+  ProductImageUploader,
+} from '@/components/product-image-uploader';
+
+import {
   confirmAction,
 } from '@/lib/confirm-action';
 
@@ -31,6 +35,7 @@ interface Variant {
 
 interface Product {
   _id: string;
+  productCode?: string;
   name: string;
   slug: string;
   description: string;
@@ -49,7 +54,36 @@ interface VariantForm {
   price: string;
   color: string;
   size: string;
+
+  /*
+   * true for a variant loaded from a saved product. Its SKU is shown
+   * but cannot be edited, because the stock record and past orders
+   * are stored under that SKU.
+   */
+  saved: boolean;
+
+  /*
+   * Stock on hand for a saved variant. 'loading' while it is being
+   * fetched; 'none' when the SKU has no stock record yet, which is
+   * the case for new variants and for products created before stock
+   * could be set from this form.
+   */
+  stock:
+    | number
+    | 'loading'
+    | 'none';
+
+  /* Typed opening stock. Only used while `stock` is 'none'. */
+  openingStock: string;
 }
+
+type VariantTextField =
+  | 'sku'
+  | 'title'
+  | 'price'
+  | 'color'
+  | 'size'
+  | 'openingStock';
 
 const emptyVariant =
   (): VariantForm => ({
@@ -58,7 +92,103 @@ const emptyVariant =
     price: '',
     color: '',
     size: '',
+    saved: false,
+    stock: 'none',
+    openingStock: '',
   });
+
+const jsonHeaders = {
+  'Content-Type':
+    'application/json',
+};
+
+/* '' -> 0, '12' -> 12, anything else -> NaN */
+function parseOpeningStock(
+  value: string,
+): number {
+  const text = value.trim();
+
+  if (text === '') {
+    return 0;
+  }
+
+  return /^\d{1,7}$/.test(text)
+    ? Number(text)
+    : Number.NaN;
+}
+
+/*
+ * Creates the stock record for a SKU that has none and adds the
+ * opening quantity through a stock adjustment, so the stock ledger
+ * shows where the first units came from. Returns a sentence for the
+ * admin when something needs their attention, otherwise null.
+ */
+async function saveOpeningStock(
+  sku: string,
+  quantity: number,
+  reference: string,
+): Promise<string | null> {
+  const path =
+    `/api/backend/inventory/${encodeURIComponent(sku)}`;
+
+  const retry =
+    `Stock for ${sku} was not saved. Edit the product and save again to retry.`;
+
+  try {
+    const check =
+      await fetch(path, {
+        cache: 'no-store',
+      });
+
+    if (check.ok) {
+      /*
+       * The SKU already has a stock record (for example a SKU that
+       * was typed in and has been used before). It is left alone.
+       */
+      return quantity > 0
+        ? `${sku} already has a stock record, so its opening stock was not applied. Change it on the Inventory page.`
+        : null;
+    }
+
+    if (check.status !== 404) {
+      return retry;
+    }
+
+    const created =
+      await fetch(path, {
+        method: 'PUT',
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          onHand: 0,
+        }),
+      });
+
+    if (!created.ok) {
+      return retry;
+    }
+
+    if (quantity > 0) {
+      const added =
+        await fetch(`${path}/adjust`, {
+          method: 'PATCH',
+          headers: jsonHeaders,
+          body: JSON.stringify({
+            delta: quantity,
+            reason: 'opening_stock',
+            reference,
+          }),
+        });
+
+      if (!added.ok) {
+        return `Stock for ${sku} is 0 because the opening stock was not saved. Add it on the Inventory page.`;
+      }
+    }
+
+    return null;
+  } catch {
+    return retry;
+  }
+}
 
 export function ProductManager() {
   const [products, setProducts] =
@@ -83,9 +213,19 @@ export function ProductManager() {
     useState('');
 
   const [images, setImages] =
-    useState<string[]>([
-      '',
-    ]);
+    useState<string[]>([]);
+
+  /* True while the image uploader is sending files. */
+  const [uploading, setUploading] =
+    useState(false);
+
+  /*
+   * Changes whenever the form is loaded with a different product or
+   * cleared, so the uploader starts fresh and an upload that was
+   * still running cannot add its image to the wrong product.
+   */
+  const [formVersion, setFormVersion] =
+    useState(0);
 
   const [active, setActive] =
     useState(true);
@@ -140,7 +280,7 @@ export function ProductManager() {
     do {
       const productsResponse =
         await fetch(
-          `/api/backend/products?active=true&page=${page}&limit=100`,
+          `/api/backend/products?page=${page}&limit=100`,
           {
             cache: 'no-store',
           },
@@ -184,9 +324,10 @@ export function ProductManager() {
     setName('');
     setBrand('');
     setDescription('');
-    setImages([
-      '',
-    ]);
+    setImages([]);
+    setFormVersion(
+      (current) => current + 1,
+    );
     setActive(true);
     setVariants([
       emptyVariant(),
@@ -222,11 +363,11 @@ export function ProductManager() {
     );
 
     setImages(
-      product.images?.length
-        ? product.images
-        : [
-            '',
-          ],
+      product.images ?? [],
+    );
+
+    setFormVersion(
+      (current) => current + 1,
     );
 
     setActive(
@@ -258,7 +399,17 @@ export function ProductManager() {
           size:
             variant.attributes
               ?.size ?? '',
+
+          saved: true,
+          stock: 'loading',
+          openingStock: '',
         }),
+      ),
+    );
+
+    void loadStock(
+      product.variants.map(
+        (variant) => variant.sku,
       ),
     );
 
@@ -268,10 +419,84 @@ export function ProductManager() {
     });
   }
 
+  /*
+   * Fetches the stock on hand for the variants of the product being
+   * edited. The answers are applied by SKU, so a slow answer for a
+   * product that is no longer in the form changes nothing.
+   */
+  async function loadStock(
+    skus: string[],
+  ) {
+    const results =
+      await Promise.all(
+        skus.map(
+          async (sku) => {
+            try {
+              const response =
+                await fetch(
+                  `/api/backend/inventory/${encodeURIComponent(sku)}`,
+                  {
+                    cache: 'no-store',
+                  },
+                );
+
+              if (!response.ok) {
+                return {
+                  sku,
+                  stock: 'none' as const,
+                };
+              }
+
+              const body =
+                await response.json();
+
+              return {
+                sku,
+                stock:
+                  typeof body.onHand ===
+                  'number'
+                    ? (body.onHand as number)
+                    : ('none' as const),
+              };
+            } catch {
+              return {
+                sku,
+                stock: 'none' as const,
+              };
+            }
+          },
+        ),
+      );
+
+    setVariants(
+      (current) =>
+        current.map(
+          (variant) => {
+            const result =
+              variant.saved
+                ? results.find(
+                    (item) =>
+                      item.sku ===
+                      variant.sku,
+                  )
+                : undefined;
+
+            return result
+              ? {
+                  ...variant,
+                  stock:
+                    result.stock,
+                }
+              : variant;
+          },
+        ),
+    );
+  }
+
   function updateVariant(
     index: number,
     field:
-      keyof VariantForm,
+      VariantTextField,
     value: string,
   ) {
     setVariants(
@@ -316,60 +541,6 @@ export function ProductManager() {
     );
   }
 
-  function updateImage(
-    index: number,
-    value: string,
-  ) {
-    setImages(
-      (current) =>
-        current.map(
-          (
-            image,
-            currentIndex,
-          ) =>
-            currentIndex ===
-            index
-              ? value
-              : image,
-        ),
-    );
-  }
-
-  function addImage() {
-    setImages(
-      (current) =>
-        current.length >= 8
-          ? current
-          : [
-              ...current,
-              '',
-            ],
-    );
-  }
-
-  function removeImage(
-    index: number,
-  ) {
-    setImages(
-      (current) => {
-        const next =
-          current.filter(
-            (_, i) =>
-              i !== index,
-          );
-
-        return (
-          next.length >
-          0
-            ? next
-            : [
-                '',
-              ]
-        );
-      },
-    );
-  }
-
   async function submit(
     event:
       FormEvent<HTMLFormElement>,
@@ -377,6 +548,42 @@ export function ProductManager() {
     event.preventDefault();
 
     setMessage('');
+
+    if (uploading) {
+      setMessage(
+        'Wait for the images to finish uploading, then save.',
+      );
+
+      return;
+    }
+
+    /*
+     * Opening stock applies only to variants that have no stock
+     * record. null means "this variant already has one; leave it".
+     */
+    const openingStock =
+      variants.map(
+        (variant) =>
+          variant.stock === 'none'
+            ? parseOpeningStock(
+                variant.openingStock,
+              )
+            : null,
+      );
+
+    if (
+      openingStock.some(
+        (quantity) =>
+          quantity !== null &&
+          Number.isNaN(quantity),
+      )
+    ) {
+      setMessage(
+        'Opening stock must be a whole number of 0 or more.',
+      );
+
+      return;
+    }
 
     const payload = {
       name,
@@ -402,8 +609,16 @@ export function ProductManager() {
       variants:
         variants.map(
           (variant) => ({
-            sku:
-              variant.sku,
+            /*
+             * A blank SKU is left out, and the API generates one
+             * from the product code.
+             */
+            ...(variant.sku.trim()
+              ? {
+                  sku:
+                    variant.sku.trim(),
+                }
+              : {}),
 
             title:
               variant.title,
@@ -475,10 +690,55 @@ export function ProductManager() {
       return;
     }
 
-    setMessage(
+    /*
+     * The API returns the saved product with its variants in the
+     * order they were sent, so a SKU generated by the server can be
+     * matched to its opening stock by position.
+     */
+    const saved =
+      body as Product;
+
+    const notes: string[] = [];
+
+    for (
+      const [index, quantity] of
+      openingStock.entries()
+    ) {
+      const sku =
+        saved.variants?.[index]?.sku;
+
+      if (
+        quantity === null ||
+        !sku
+      ) {
+        continue;
+      }
+
+      const note =
+        await saveOpeningStock(
+          sku,
+          quantity,
+          saved.productCode ??
+            'admin_console',
+        );
+
+      if (note) {
+        notes.push(note);
+      }
+    }
+
+    const headline =
       editingId
         ? 'Product updated'
-        : 'Product created',
+        : 'Product created';
+
+    setMessage(
+      [
+        saved.productCode
+          ? `${headline}: ${saved.productCode}.`
+          : `${headline}.`,
+        ...notes,
+      ].join(' '),
     );
 
     reset();
@@ -531,6 +791,15 @@ export function ProductManager() {
     await load();
   }
 
+  const editingProduct =
+    editingId
+      ? products.find(
+          (product) =>
+            product._id ===
+            editingId,
+        )
+      : undefined;
+
   return (
     <div className="grid min-w-0 gap-8 xl:grid-cols-[480px_minmax(0,1fr)]">
       <form
@@ -542,6 +811,13 @@ export function ProductManager() {
             ? 'Edit product'
             : 'New product'}
         </h2>
+
+        <p className="mt-1 text-sm text-[#6f6679]">
+          {editingProduct
+            ? editingProduct.productCode ??
+              'This product gets its product code when you save it.'
+            : 'The product code and any SKU you leave empty are generated when you save.'}
+        </p>
 
         <div className="mt-6 grid gap-5">
           <label>
@@ -607,98 +883,18 @@ export function ProductManager() {
             </select>
           </label>
 
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <span className="text-sm font-semibold">
-                  Product images
-                </span>
-
-                <p className="mt-1 text-xs text-[#6f6679]">
-                  Add up to 8 HTTPS image URLs. The first image is used as the catalog cover.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={addImage}
-                disabled={
-                  images.length >=
-                  8
-                }
-                className="rounded-lg bg-[#f2edf8] px-3 py-2 text-sm font-semibold text-[#38205f] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                + Add image
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {images.map(
-                (
-                  value,
-                  index,
-                ) => (
-                  <div
-                    key={index}
-                    className="rounded-2xl border border-[#e8e2ef] p-3"
-                  >
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        value={
-                          value
-                        }
-                        onChange={(event) =>
-                          updateImage(
-                            index,
-                            event.target.value,
-                          )
-                        }
-                        aria-label={`Product image ${index + 1}`}
-                        placeholder="https://..."
-                        className="min-w-0 flex-1 rounded-xl border border-[#e8e2ef] px-4 py-3"
-                      />
-
-                      {images.length >
-                        1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeImage(
-                              index,
-                            )
-                          }
-                          className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-
-                    {value.trim() && (
-                      <div className="mt-3 overflow-hidden rounded-xl border border-[#e8e2ef] bg-[#f2edf8]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={
-                            value.trim()
-                          }
-                          alt={`Product preview ${index + 1}`}
-                          className="h-40 w-full object-cover"
-                        />
-                      </div>
-                    )}
-
-                    {index ===
-                      0 && (
-                      <p className="mt-2 text-xs font-semibold text-[#38205f]">
-                        Catalog cover image
-                      </p>
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
+          {/*
+           * Files go from the browser straight to storage; the form
+           * keeps the resulting list of image URLs. The key gives each
+           * product its own uploader, so an upload that is still
+           * running cannot land on a different product.
+           */}
+          <ProductImageUploader
+            key={formVersion}
+            images={images}
+            onChange={setImages}
+            onBusyChange={setUploading}
+          />
 
           <label>
             <span className="text-sm font-semibold">
@@ -749,6 +945,12 @@ export function ProductManager() {
             </button>
           </div>
 
+          <p className="mt-2 text-xs leading-5 text-[#6f6679]">
+            Leave SKU empty to have one generated. Opening stock is the
+            quantity you have now; after that, change stock on the
+            Inventory page.
+          </p>
+
           <div className="mt-4 space-y-4">
             {variants.map(
               (
@@ -761,9 +963,16 @@ export function ProductManager() {
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
                     <input
-                      required
                       aria-label={`Variant ${index + 1} SKU`}
-                      placeholder="SKU"
+                      placeholder="SKU (optional)"
+                      title={
+                        variant.saved
+                          ? 'A saved SKU cannot be changed, because stock and past orders are recorded under it.'
+                          : undefined
+                      }
+                      readOnly={
+                        variant.saved
+                      }
                       value={
                         variant.sku
                       }
@@ -775,7 +984,11 @@ export function ProductManager() {
                             .value,
                         )
                       }
-                      className="rounded-lg border border-[#e8e2ef] px-3 py-2"
+                      className={`rounded-lg border border-[#e8e2ef] px-3 py-2 ${
+                        variant.saved
+                          ? 'bg-[#faf8fc] text-[#6f6679]'
+                          : ''
+                      }`}
                     />
 
                     <input
@@ -849,6 +1062,47 @@ export function ProductManager() {
                       }
                       className="rounded-lg border border-[#e8e2ef] px-3 py-2"
                     />
+
+                    {variant.stock ===
+                    'none' ? (
+                      /*
+                       * The words stay visible next to the number, so
+                       * a filled field cannot be mistaken for a price.
+                       */
+                      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-[#e8e2ef] px-3 focus-within:outline-2 focus-within:outline-[#4c2a7d]">
+                        <span className="shrink-0 text-sm text-[#6f6679]">
+                          Opening stock
+                        </span>
+
+                        <input
+                          min="0"
+                          step="1"
+                          type="number"
+                          inputMode="numeric"
+                          aria-label={`Variant ${index + 1} opening stock`}
+                          placeholder="0"
+                          value={
+                            variant.openingStock
+                          }
+                          onChange={(event) =>
+                            updateVariant(
+                              index,
+                              'openingStock',
+                              event.target
+                                .value,
+                            )
+                          }
+                          className="w-full min-w-0 bg-transparent py-2 text-right outline-none"
+                        />
+                      </label>
+                    ) : (
+                      <p className="flex min-h-11 items-center rounded-lg bg-[#faf8fc] px-3 py-2 text-sm text-[#6f6679]">
+                        {variant.stock ===
+                        'loading'
+                          ? 'Checking stock…'
+                          : `In stock: ${variant.stock}`}
+                      </p>
+                    )}
                   </div>
 
                   {variants.length >
@@ -871,10 +1125,15 @@ export function ProductManager() {
           </div>
         </div>
 
-        <button className="mt-7 w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white hover:bg-[#38205f]">
-          {editingId
-            ? 'Save product'
-            : 'Create product'}
+        <button
+          disabled={uploading}
+          className="mt-7 w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white hover:bg-[#38205f] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {uploading
+            ? 'Uploading images…'
+            : editingId
+              ? 'Save product'
+              : 'Create product'}
         </button>
 
         {editingId && (
@@ -906,6 +1165,20 @@ export function ProductManager() {
                   <div>
                     <p className="text-lg font-bold text-[#1f1235]">
                       {product.name}
+                    </p>
+
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#6f6679]">
+                      {product.productCode && (
+                        <span>
+                          {product.productCode}
+                        </span>
+                      )}
+
+                      {!product.active && (
+                        <span className="rounded-full bg-[#fef4f2] px-2 py-0.5 text-[#8a1c10]">
+                          Inactive (hidden from the shop)
+                        </span>
+                      )}
                     </p>
 
                     <p className="mt-1 text-sm text-[#6f6679]">

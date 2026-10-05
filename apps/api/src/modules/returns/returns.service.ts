@@ -40,6 +40,14 @@ import {
   ReturnRequestDocument,
 } from './schemas/return.schema';
 
+import {
+  SequencesService,
+} from '../sequences/sequences.service';
+
+import {
+  normalizePhone,
+} from '../../common/phone';
+
 @Injectable()
 export class ReturnsService {
   constructor(
@@ -59,17 +67,10 @@ export class ReturnsService {
 
     private readonly redis:
       RedisService,
+
+    private readonly sequences:
+      SequencesService,
   ) {}
-
-  private generateNumber() {
-    const random =
-      Math.random()
-        .toString(36)
-        .slice(2, 9)
-        .toUpperCase();
-
-    return `RT-${Date.now()}-${random}`;
-  }
 
   async create(
     dto: CreateReturnDto,
@@ -79,13 +80,9 @@ export class ReturnsService {
         .trim()
         .toUpperCase();
 
+    /* Same stored format as the phone on the order: see common/phone.ts. */
     const phone =
-      dto.phone
-        .trim()
-        .replace(
-          /\s+/g,
-          '',
-        );
+      normalizePhone(dto.phone);
 
     const lockKey =
       `return-create:${orderNumber}`;
@@ -272,10 +269,14 @@ export class ReturnsService {
           0,
         );
 
+      const returnNumber =
+        await this.sequences.nextCode(
+          'return',
+        );
+
       return this.returnModel
         .create({
-          returnNumber:
-            this.generateNumber(),
+          returnNumber,
 
           orderNumber,
 

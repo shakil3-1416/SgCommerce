@@ -25,6 +25,7 @@
   "exclude": [
     "dist",
     "node_modules",
-    "src/seed.ts"
+    "src/seed.ts",
+    "src/backfill-business-ids.ts"
   ]
 }

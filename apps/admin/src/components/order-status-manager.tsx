@@ -1,6 +1,10 @@
 'use client';
 
 import {
+  useRouter,
+} from 'next/navigation';
+
+import {
   useState,
 } from 'react';
 
@@ -51,6 +55,9 @@ export function OrderStatusManager({
   ] =
     useState('');
 
+  const router =
+    useRouter();
+
   async function save() {
     setSaving(true);
     setMessage('');
@@ -78,11 +85,34 @@ export function OrderStatusManager({
     setSaving(false);
 
     if (!response.ok) {
-      setMessage('Save failed');
+      /*
+       * Show the reason the API gives, for example
+       * "Cannot move order from pending to delivered".
+       */
+      const body =
+        await response
+          .json()
+          .catch(() => null);
+
+      const reason =
+        Array.isArray(body?.message)
+          ? body.message.join(', ')
+          : body?.message;
+
+      setMessage(
+        typeof reason === 'string' &&
+          reason
+          ? reason
+          : 'Save failed',
+      );
+
       return;
     }
 
     setMessage('Saved');
+
+    // Reload the page data so the order's history shows this change.
+    router.refresh();
   }
 
   return (

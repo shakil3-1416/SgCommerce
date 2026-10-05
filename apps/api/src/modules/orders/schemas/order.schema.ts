@@ -100,6 +100,16 @@ export class OrderItem {
   })
   productId!: Types.ObjectId;
 
+  /*
+   * The product's business code at the time of the order, for example
+   * "SGP-000217". Empty on orders placed before product codes existed.
+   */
+  @Prop({
+    type: String,
+    default: '',
+  })
+  productCode!: string;
+
   @Prop({
     type: String,
     required: true,
@@ -149,6 +159,55 @@ export class OrderItem {
 const OrderItemSchema =
   SchemaFactory.createForClass(
     OrderItem,
+  );
+
+/*
+ * One entry each time the order's status, payment status or tracking
+ * number changes: what it became, who changed it and when. Entries are
+ * only ever added, never edited.
+ */
+@Schema({
+  _id: false,
+})
+export class OrderStatusChange {
+  @Prop({
+    type: String,
+    required: true,
+  })
+  status!: string;
+
+  @Prop({
+    type: String,
+    required: true,
+  })
+  paymentStatus!: string;
+
+  @Prop({
+    type: String,
+    default: '',
+  })
+  trackingNumber!: string;
+
+  /*
+   * 'customer' or 'guest' for the entry written at checkout; the
+   * admin's email for changes made in the admin.
+   */
+  @Prop({
+    type: String,
+    required: true,
+  })
+  changedBy!: string;
+
+  @Prop({
+    type: Date,
+    required: true,
+  })
+  at!: Date;
+}
+
+const OrderStatusChangeSchema =
+  SchemaFactory.createForClass(
+    OrderStatusChange,
   );
 
 @Schema({
@@ -266,6 +325,12 @@ export class Order {
     default: '',
   })
   trackingNumber!: string;
+
+  @Prop({
+    type: [OrderStatusChangeSchema],
+    default: [],
+  })
+  statusHistory!: OrderStatusChange[];
 }
 
 export const OrderSchema =

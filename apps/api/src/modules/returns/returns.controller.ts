@@ -72,6 +72,14 @@ export class ReturnsController {
       .list(status);
   }
 
+  /*
+   * Admin only. A return record contains the customer's phone number
+   * and order number, so it must not be readable by anyone who merely
+   * knows or guesses a return number. Customers read their own returns
+   * through GET /returns/me.
+   */
+  @UseGuards(AuthGuard)
+  @RequireRole('admin')
   @Get(':returnNumber')
   get(
     @Param('returnNumber')

@@ -17,6 +17,10 @@ import {
   UserDocument,
 } from './schemas/user.schema';
 
+import {
+  normalizePhone as toStoredPhone,
+} from '../../common/phone';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -33,12 +37,11 @@ export class UsersService {
       .toLowerCase();
   }
 
+  /* Same stored format as customers: see common/phone.ts. */
   normalizePhone(
     value: string,
   ) {
-    return value
-      .trim()
-      .replace(/\s+/g, '');
+    return toStoredPhone(value);
   }
 
   async findByIdentifier(

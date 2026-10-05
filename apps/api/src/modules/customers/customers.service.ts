@@ -25,6 +25,14 @@ import {
   CustomerDocument,
 } from './schemas/customer.schema';
 
+import {
+  deliveryZoneFor,
+} from '../../common/delivery-zone';
+
+import {
+  normalizePhone as toStoredPhone,
+} from '../../common/phone';
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -33,12 +41,15 @@ export class CustomersService {
       Model<CustomerDocument>,
   ) {}
 
+  /*
+   * One stored format for every phone number: see common/phone.ts.
+   * Customers are matched by phone, so this must be applied wherever a
+   * phone is saved or looked up.
+   */
   normalizePhone(
     value: string,
   ) {
-    return value
-      .trim()
-      .replace(/\s+/g, '');
+    return toStoredPhone(value);
   }
 
   async upsertFromCheckout(
@@ -153,7 +164,8 @@ export class CustomersService {
       city: string;
       area?: string;
       postalCode?: string;
-      zone:
+      /* Ignored: the zone is decided from the district (city). */
+      zone?:
         | 'inside_dhaka'
         | 'outside_dhaka';
       isDefault?: boolean;
@@ -192,7 +204,9 @@ export class CustomersService {
         input.postalCode?.trim() ??
         '',
       zone:
-        input.zone,
+        deliveryZoneFor(
+          input.city,
+        ),
       isDefault:
         Boolean(
           input.isDefault,

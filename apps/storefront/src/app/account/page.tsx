@@ -11,6 +11,11 @@ import {
 } from 'next/navigation';
 
 import {
+  deliveryZoneFor,
+  DISTRICTS,
+} from '@/lib/districts';
+
+import {
   clearLegacyCustomerToken,
   customerFetch,
   logoutCustomer,
@@ -227,12 +232,14 @@ export default function AccountPage() {
                     ) ?? '',
                   ).trim(),
 
+                /* Sent for information only; the API works it out again. */
                 zone:
-                  String(
-                    form.get(
-                      'zone',
-                    ) ??
-                      'inside_dhaka',
+                  deliveryZoneFor(
+                    String(
+                      form.get(
+                        'city',
+                      ) ?? '',
+                    ),
                   ),
 
                 isDefault:
@@ -574,13 +581,29 @@ export default function AccountPage() {
               className="w-full rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Apartment, suite or additional address" />
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <input
+              <select
                 required
                 name="city"
-                placeholder="City"
                 autoComplete="address-level2"
-                defaultValue="Dhaka"
-                className="rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="City" />
+                defaultValue=""
+                className="rounded-xl border border-[#e8e2ef] bg-white px-4 py-3"
+                aria-label="District"
+              >
+                <option value="">
+                  Choose your district
+                </option>
+
+                {DISTRICTS.map(
+                  (district) => (
+                    <option
+                      key={district}
+                      value={district}
+                    >
+                      {district}
+                    </option>
+                  ),
+                )}
+              </select>
 
               <input
                 name="area"
@@ -596,18 +619,9 @@ export default function AccountPage() {
                 className="rounded-xl border border-[#e8e2ef] px-4 py-3" aria-label="Postal code" />
             </div>
 
-            <select
-              name="zone"
-              className="w-full rounded-xl border border-[#e8e2ef] bg-white px-4 py-3"
-             aria-label="Delivery zone">
-              <option value="inside_dhaka">
-                Inside Dhaka
-              </option>
-
-              <option value="outside_dhaka">
-                Outside Dhaka
-              </option>
-            </select>
+            <p className="text-sm text-[#6f6679]">
+              The delivery charge is worked out from the district when you order.
+            </p>
 
             <label className="flex gap-2 text-sm">
               <input

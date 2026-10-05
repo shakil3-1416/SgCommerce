@@ -16,6 +16,14 @@ import {
   useCart,
 } from '@/components/cart-provider';
 
+import {
+  DELIVERY_FEE,
+  deliveryZoneFor,
+  DISTRICTS,
+  matchDistrict,
+  ZONE_LABEL,
+} from '@/lib/districts';
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   'http://localhost:4000/api/v1';
@@ -60,15 +68,12 @@ interface CheckoutForm {
   addressLine2:
     string;
 
+  /* The district, chosen from a list. The delivery zone follows from it. */
   city: string;
   area: string;
 
   postalCode:
     string;
-
-  zone:
-    | 'inside_dhaka'
-    | 'outside_dhaka';
 }
 
 const EMPTY_FORM:
@@ -88,9 +93,6 @@ const EMPTY_FORM:
 
     postalCode:
       '',
-
-    zone:
-      'inside_dhaka',
   };
 
 function money(
@@ -164,15 +166,24 @@ export default function CheckoutPage() {
   ] =
     useState('');
 
+  /*
+   * The delivery charge follows from the district. Until one is chosen
+   * there is no charge to show, and the total is the subtotal.
+   */
+  const districtChosen =
+    form.city !== '';
+
+  const deliveryZone =
+    deliveryZoneFor(form.city);
+
   const shippingFee =
-    form.zone ===
-      'inside_dhaka'
-      ? 80
-      : 150;
+    DELIVERY_FEE[deliveryZone];
 
   const total =
     subtotal +
-    shippingFee;
+    (districtChosen
+      ? shippingFee
+      : 0);
 
   /*
    * Load the signed-in customer once.
@@ -275,10 +286,15 @@ export default function CheckoutPage() {
                   ?.addressLine2 ??
                 '',
 
+              /*
+               * Saved addresses hold free text. It is matched to a
+               * district; when nothing matches, the customer chooses.
+               */
               city:
-                defaultAddress
-                  ?.city ??
-                '',
+                matchDistrict(
+                  defaultAddress
+                    ?.city,
+                ),
 
               area:
                 defaultAddress
@@ -289,11 +305,6 @@ export default function CheckoutPage() {
                 defaultAddress
                   ?.postalCode ??
                 '',
-
-              zone:
-                defaultAddress
-                  ?.zone ??
-                'inside_dhaka',
             }),
           );
 
@@ -419,8 +430,9 @@ export default function CheckoutPage() {
             .trim() ||
           undefined,
 
+        /* Sent for information only; the API works it out again. */
         zone:
-          form.zone,
+          deliveryZone,
       },
 
       items:
@@ -811,14 +823,11 @@ export default function CheckoutPage() {
 
               <label>
                 <span className="text-sm font-semibold text-[#1f1235]">
-                  City
+                  District
                 </span>
 
-                <input
+                <select
                   required
-                  minLength={
-                    2
-                  }
                   name="city"
                   autoComplete="address-level2"
                   value={
@@ -833,8 +842,23 @@ export default function CheckoutPage() {
                         .value,
                     )
                   }
-                  className="mt-2 w-full rounded-xl border border-[#ddd4e8] px-4 py-3 outline-none focus:border-[#38205f]"
-                />
+                  className="mt-2 w-full rounded-xl border border-[#ddd4e8] bg-white px-4 py-3 outline-none focus:border-[#38205f]"
+                >
+                  <option value="">
+                    Choose your district
+                  </option>
+
+                  {DISTRICTS.map(
+                    (district) => (
+                      <option
+                        key={district}
+                        value={district}
+                      >
+                        {district}
+                      </option>
+                    ),
+                  )}
+                </select>
               </label>
 
               <label>
@@ -888,39 +912,26 @@ export default function CheckoutPage() {
                 />
               </label>
 
-              <label>
-                <span className="text-sm font-semibold text-[#1f1235]">
-                  Delivery zone
-                </span>
-
-                <select
-                  name="zone"
-                  value={
-                    form.zone
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    updateField(
-                      'zone',
-                      event.target
-                        .value as
-                        CheckoutForm[
-                          'zone'
-                        ],
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl border border-[#ddd4e8] bg-white px-4 py-3 outline-none focus:border-[#38205f]"
-                >
-                  <option value="inside_dhaka">
-                    Inside Dhaka
-                  </option>
-
-                  <option value="outside_dhaka">
-                    Outside Dhaka
-                  </option>
-                </select>
-              </label>
+              {/*
+                * The customer no longer picks the zone. It follows from
+                * the district, here and again on the server.
+                */}
+              <div
+                aria-live="polite"
+                className="self-end rounded-xl bg-[#f7f4fa] px-4 py-3 text-sm text-[#4f455c]"
+              >
+                {districtChosen ? (
+                  <>
+                    <span className="font-semibold text-[#1f1235]">
+                      {ZONE_LABEL[deliveryZone]}
+                    </span>
+                    {' delivery: '}
+                    {money(shippingFee)}
+                  </>
+                ) : (
+                  'Choose your district to see the delivery charge.'
+                )}
+              </div>
             </div>
           </section>
         </div>
@@ -989,9 +1000,11 @@ export default function CheckoutPage() {
               </span>
 
               <span>
-                {money(
-                  shippingFee,
-                )}
+                {districtChosen
+                  ? money(
+                      shippingFee,
+                    )
+                  : 'Choose district'}
               </span>
             </div>
 

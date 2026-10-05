@@ -9,6 +9,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
+import { SequencesModule } from './modules/sequences/sequences.module';
 
 import { SupgentModule } from './integrations/supgent/supgent.module';
 
@@ -59,6 +60,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     }),
 
     RedisModule,
+    SequencesModule,
     HealthModule,
 
     AuthModule,

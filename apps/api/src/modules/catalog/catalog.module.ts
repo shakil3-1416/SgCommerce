@@ -20,6 +20,10 @@ import {
 } from './catalog.service';
 
 import {
+  ProductIdentityService,
+} from './product-identity.service';
+
+import {
   Category,
   CategorySchema,
 } from './schemas/category.schema';
@@ -50,6 +54,7 @@ import {
 
   providers: [
     CatalogService,
+    ProductIdentityService,
   ],
 
   exports: [

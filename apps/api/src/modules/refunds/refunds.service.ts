@@ -20,23 +20,20 @@ import {
   RefundDocument,
 } from './schemas/refund.schema';
 
+import {
+  SequencesService,
+} from '../sequences/sequences.service';
+
 @Injectable()
 export class RefundsService {
   constructor(
     @InjectModel(Refund.name)
     private readonly refundModel:
       Model<RefundDocument>,
+
+    private readonly sequences:
+      SequencesService,
   ) {}
-
-  private generateNumber() {
-    const random =
-      Math.random()
-        .toString(36)
-        .slice(2, 9)
-        .toUpperCase();
-
-    return `RF-${Date.now()}-${random}`;
-  }
 
   async ensureForReturn(input: {
     returnNumber: string;
@@ -44,6 +41,26 @@ export class RefundsService {
     customerPhone: string;
     amount: number;
   }) {
+    /*
+     * One refund per return. Looking first means a repeated call does
+     * not take a new number from the `refund` counter each time.
+     */
+    const existing =
+      await this.refundModel
+        .findOne({
+          returnNumber:
+            input.returnNumber,
+        });
+
+    if (existing) {
+      return existing;
+    }
+
+    const refundNumber =
+      await this.sequences.nextCode(
+        'refund',
+      );
+
     return this.refundModel
       .findOneAndUpdate(
         {
@@ -52,8 +69,7 @@ export class RefundsService {
         },
         {
           $setOnInsert: {
-            refundNumber:
-              this.generateNumber(),
+            refundNumber,
 
             returnNumber:
               input.returnNumber,

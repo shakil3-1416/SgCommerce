@@ -13,14 +13,20 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 
 export class ProductVariantDto {
+  /*
+   * Optional. Left out or blank, the API generates one from the product
+   * code, for example SGP-000217-01.
+   */
+  @IsOptional()
   @IsString()
-  @Length(1, 80)
-  sku!: string;
+  @MaxLength(80)
+  sku?: string;
 
   @IsString()
   @Length(1, 160)
