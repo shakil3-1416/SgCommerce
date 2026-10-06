@@ -44,6 +44,12 @@ export function AdminHeader() {
             <Link href="/refunds">
               Refunds
             </Link>
+
+            <Link href="/developers">
+
+              Developers
+
+            </Link>
           </nav>
 
           <AdminLogout />

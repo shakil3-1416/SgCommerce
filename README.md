@@ -157,12 +157,19 @@ Merchants upload product photos in the admin. The files are stored in a Vercel B
 
 Customer, delivery address, each line (product code, SKU, name, variant, unit price, quantity), totals, payment method and status, the confirmed online payment (channel, bank transaction ID, time), and a history entry for every change of status, payment or tracking number with who made it and when. Stock movements carry the order number.
 
+## Developer API
+
+Other systems (an ERP, a courier service, accounting) connect through the Developer API at `/api/v1/developer`. Each system is registered in the admin under **Developers** as an application with its own key (`sg_live_...`) and only the permissions it needs, and can be revoked on its own. The API returns stable business resources identified by their business numbers, with one response shape, machine-readable error codes, cursor pagination and per-application rate limits.
+
+Stage 1 is read-only: products, categories, inventory, customers, orders, payments, returns and refunds. Writing and webhooks are planned. Reference: `docs/DEVELOPER_API.md`.
+
 ## Documentation
 
 | Document | Covers |
 | --- | --- |
 | `docs/PRODUCT_IDS_AND_IMAGES.md` | Identifiers, image upload, opening stock, order records, delivery charge, phone numbers, one-time data preparation |
 | `docs/PAYMENTS_SSLCOMMERZ.md` | Online payment: setup, flow, rules, testing, what is not included |
+| `docs/DEVELOPER_API.md` | The Developer API for outside systems: credentials, scopes, every endpoint, errors, rate limits |
 | `docs/VERCEL_DEPLOYMENT.md` | The three Vercel projects and their environment variables |
 
 ## Catalog
@@ -211,7 +218,7 @@ Or everything at once, including the API build:
 ## Unit Tests
 
     pnpm --filter api run test:ids
-    pnpm --filter api exec tsx --test ../admin/src/lib/product-images.spec.ts ../admin/src/lib/order-payment.spec.ts
+    pnpm --filter api exec tsx --test ../admin/src/lib/product-images.spec.ts ../admin/src/lib/order-payment.spec.ts ../admin/src/lib/developer-applications.spec.ts
     pnpm --filter api exec tsx --test ../storefront/src/lib/districts.spec.ts ../storefront/src/lib/payments.spec.ts
 
 These cover the identifier formats, the phone and delivery rules, the SSLCOMMERZ request and signature rules, the image upload rules and the payment wording.
@@ -328,10 +335,12 @@ Implemented:
 - Order details and change history in the admin
 - District-based delivery charge and one stored phone format
 - Online payment through SSLCOMMERZ, verified end to end in the sandbox on the production deployment
+- Developer API, stage 1: applications with scoped keys and read access to every commerce resource
 
 Remaining launch work includes:
 
 - Live SSLCOMMERZ merchant account and credentials
+- Developer API stage 2 (writes with idempotency) and stage 3 (webhooks)
 - Replacing the demo catalog with the merchant's own products and photos
 - Automatic cancellation of online orders whose payment page was abandoned
 - Making checkout safe against a failure half-way through (stock and order are not yet written in one transaction)

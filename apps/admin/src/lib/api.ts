@@ -77,3 +77,10 @@ export async function getRefunds() {
     '/refunds',
   );
 }
+
+/* The Developers page: registered API applications and the scopes that can be granted. */
+export async function getDeveloperOverview() {
+  return adminFetch(
+    '/developer-applications',
+  );
+}

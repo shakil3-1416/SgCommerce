@@ -25,6 +25,7 @@ import { CheckoutModule } from './modules/checkout/checkout.module';
 
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { DeveloperModule } from './modules/developer/developer.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 
 import { CouponsModule } from './modules/coupons/coupons.module';
@@ -75,6 +76,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 
     OrdersModule,
     PaymentsModule,
+    DeveloperModule,
     ShippingModule,
 
     CouponsModule,
