@@ -12,6 +12,11 @@ import {
   customerFetch,
 } from '@/lib/customer-auth';
 
+import {
+  paymentMethodLabel,
+  paymentStatusLabel,
+} from '@/lib/payments';
+
 interface OrderItem {
   productSlug: string;
   productName: string;
@@ -500,15 +505,15 @@ export default function OrdersPage() {
                       Payment
                     </p>
 
-                    <p className="mt-1 text-sm font-semibold capitalize text-[#1f1235]">
-                      COD
+                    <p className="mt-1 text-sm font-semibold text-[#1f1235]">
+                      {paymentMethodLabel(
+                        order.paymentMethod,
+                      )}
                       {' · '}
-                      {
-                        labels[
-                          order.paymentStatus
-                        ] ??
-                        order.paymentStatus
-                      }
+                      {paymentStatusLabel(
+                        order.paymentMethod,
+                        order.paymentStatus,
+                      )}
                     </p>
                   </div>
 

@@ -24,6 +24,14 @@ import {
   ZONE_LABEL,
 } from '@/lib/districts';
 
+import {
+  canPayOnline,
+  CASH_ON_DELIVERY_ONLY,
+  type PaymentMethod,
+  type PaymentMethods,
+  readPaymentMethods,
+} from '@/lib/payments';
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   'http://localhost:4000/api/v1';
@@ -167,6 +175,51 @@ export default function CheckoutPage() {
     useState('');
 
   /*
+   * Which ways of paying the shop offers. Cash on delivery until the
+   * API says online payment is switched on.
+   */
+  const [
+    paymentMethods,
+    setPaymentMethods,
+  ] =
+    useState<PaymentMethods>(
+      CASH_ON_DELIVERY_ONLY,
+    );
+
+  const [
+    chosenPayment,
+    setChosenPayment,
+  ] =
+    useState<PaymentMethod>('cod');
+
+  useEffect(() => {
+    let active = true;
+
+    fetch(`${API_URL}/payments/methods`, {
+      cache: 'no-store',
+    })
+      .then((response) =>
+        response.ok
+          ? response.json()
+          : null,
+      )
+      .then((answer) => {
+        if (active) {
+          setPaymentMethods(
+            readPaymentMethods(answer),
+          );
+        }
+      })
+      .catch(() => {
+        // Cash on delivery stays available.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /*
    * The delivery charge follows from the district. Until one is chosen
    * there is no charge to show, and the total is the subtotal.
    */
@@ -184,6 +237,22 @@ export default function CheckoutPage() {
     (districtChosen
       ? shippingFee
       : 0);
+
+  /*
+   * Online payment is offered when the shop has it switched on and the
+   * total is an amount the gateway accepts. Otherwise the order is cash
+   * on delivery, whatever was chosen before.
+   */
+  const onlineAvailable =
+    canPayOnline(
+      paymentMethods,
+      total,
+    );
+
+  const paymentMethod: PaymentMethod =
+    onlineAvailable
+      ? chosenPayment
+      : 'cod';
 
   /*
    * Load the signed-in customer once.
@@ -389,6 +458,12 @@ export default function CheckoutPage() {
       true,
     );
 
+    /*
+     * Set when the browser is on its way to the payment page, so the
+     * button stays disabled instead of inviting a second click.
+     */
+    let leavingForPayment = false;
+
     setError(
       '',
     );
@@ -434,6 +509,8 @@ export default function CheckoutPage() {
         zone:
           deliveryZone,
       },
+
+      paymentMethod,
 
       items:
         items.map(
@@ -560,6 +637,47 @@ export default function CheckoutPage() {
           CHECKOUT_IDEMPOTENCY_KEY,
         );
 
+      /*
+       * Paying online: the order is saved and the customer goes to the
+       * payment page. The cart is kept until the payment is confirmed,
+       * so nothing is lost if the payment does not go through.
+       */
+      const gatewayUrl =
+        body.payment?.gatewayUrl;
+
+      if (
+        typeof gatewayUrl ===
+          'string' &&
+        gatewayUrl !== ''
+      ) {
+        /*
+         * Only ever leave for SSLCOMMERZ's own secure pages, whatever
+         * address comes back.
+         */
+        const destination =
+          new URL(gatewayUrl);
+
+        if (
+          destination.protocol !==
+            'https:' ||
+          !/(^|\.)sslcommerz\.com$/.test(
+            destination.hostname,
+          )
+        ) {
+          throw new Error(
+            'The payment page could not be opened. Choose cash on delivery, or try again.',
+          );
+        }
+
+        leavingForPayment = true;
+
+        window.location.assign(
+          gatewayUrl,
+        );
+
+        return;
+      }
+
       clearCart();
 
       router.push(
@@ -579,9 +697,11 @@ export default function CheckoutPage() {
           : 'Unable to place order',
       );
     } finally {
-      setSubmitting(
-        false,
-      );
+      if (!leavingForPayment) {
+        setSubmitting(
+          false,
+        );
+      }
     }
   }
 
@@ -934,6 +1054,94 @@ export default function CheckoutPage() {
               </div>
             </div>
           </section>
+
+          {paymentMethods.online && (
+            <section className="mt-6 rounded-3xl border border-[#e8e2ef] bg-white p-7 shadow-sm">
+              <h2 className="text-xl font-bold text-[#1f1235]">
+                Payment
+              </h2>
+
+              <p className="mt-1 text-sm text-[#6f6679]">
+                Choose how you want to pay.
+              </p>
+
+              <fieldset className="mt-5 grid gap-3">
+                <legend className="sr-only">
+                  Payment method
+                </legend>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#ddd4e8] px-4 py-3 has-[:checked]:border-[#38205f] has-[:checked]:bg-[#faf8fc]">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="cod"
+                    checked={
+                      paymentMethod === 'cod'
+                    }
+                    onChange={() =>
+                      setChosenPayment('cod')
+                    }
+                    className="mt-1"
+                  />
+
+                  <span>
+                    <span className="block font-semibold text-[#1f1235]">
+                      Cash on delivery
+                    </span>
+
+                    <span className="block text-sm text-[#6f6679]">
+                      Pay when your order arrives.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 rounded-xl border border-[#ddd4e8] px-4 py-3 has-[:checked]:border-[#38205f] has-[:checked]:bg-[#faf8fc] ${
+                    onlineAvailable
+                      ? 'cursor-pointer'
+                      : 'cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="sslcommerz"
+                    disabled={
+                      !onlineAvailable
+                    }
+                    checked={
+                      paymentMethod ===
+                      'sslcommerz'
+                    }
+                    onChange={() =>
+                      setChosenPayment(
+                        'sslcommerz',
+                      )
+                    }
+                    className="mt-1"
+                  />
+
+                  <span>
+                    <span className="block font-semibold text-[#1f1235]">
+                      Pay online
+                    </span>
+
+                    <span className="block text-sm text-[#6f6679]">
+                      {onlineAvailable
+                        ? 'Card, bKash, Nagad and more. You pay on the secure SSLCOMMERZ page and come back here.'
+                        : `Available for orders between ${money(paymentMethods.minimum)} and ${money(paymentMethods.maximum)}.`}
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+
+              {paymentMethods.sandbox && (
+                <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Online payment is in test mode. No real money is taken.
+                </p>
+              )}
+            </section>
+          )}
         </div>
 
         <aside className="h-fit rounded-3xl bg-[#1f1235] p-7 text-white lg:sticky lg:top-28">
@@ -1038,8 +1246,14 @@ export default function CheckoutPage() {
             {profileLoading
               ? 'Loading your details...'
               : submitting
-                ? 'Placing order...'
-                : 'Place order'}
+                ? paymentMethod ===
+                  'sslcommerz'
+                  ? 'Taking you to payment...'
+                  : 'Placing order...'
+                : paymentMethod ===
+                    'sslcommerz'
+                  ? 'Continue to payment'
+                  : 'Place order'}
           </button>
 
           {authenticated ? (

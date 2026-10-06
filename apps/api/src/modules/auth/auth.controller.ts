@@ -24,6 +24,10 @@ import {
 } from './auth.service';
 
 import {
+  PaymentsService,
+} from '../payments/payments.service';
+
+import {
   AddAddressDto,
   LoginDto,
   RegisterDto,
@@ -35,6 +39,9 @@ export class AuthController {
   constructor(
     private readonly auth:
       AuthService,
+
+    private readonly payments:
+      PaymentsService,
   ) {}
 
   @Post('register')
@@ -132,11 +139,17 @@ export class AuthController {
     idempotencyKey?:
       string,
   ) {
-    return this.auth
-      .placeMyOrder(
-        request.user,
+    /*
+     * Places the order under the signed-in customer and, for an online
+     * payment, starts it. The answer then carries `payment.gatewayUrl`.
+     */
+    return this.payments
+      .checkout(
         dto,
         idempotencyKey,
+        this.auth.checkoutCustomerId(
+          request.user,
+        ),
       );
   }
 

@@ -537,6 +537,24 @@ export class AuthService {
       );
   }
 
+  /**
+   * The customer id a signed-in checkout must be placed under. The
+   * signed-in identity is authoritative; a phone number is not.
+   */
+  checkoutCustomerId(
+    payload: TokenPayload,
+  ): string {
+    if (
+      payload.role !==
+        'customer' ||
+      !payload.customerId
+    ) {
+      throw new UnauthorizedException();
+    }
+
+    return payload.customerId;
+  }
+
   async placeMyOrder(
     payload:
       TokenPayload,

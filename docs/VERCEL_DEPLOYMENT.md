@@ -78,6 +78,12 @@ Production environment:
 - `ENABLE_HSTS=true`
 - `TRUST_PROXY=true`
 
+For online payment through SSLCOMMERZ, also set
+`SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD` and
+`STOREFRONT_URL=https://<storefront-domain>`, and later
+`SSLCOMMERZ_LIVE=true` for real payments. See
+`docs/PAYMENTS_SSLCOMMERZ.md`.
+
 Recommended production domain:
 
 `api.<domain>`

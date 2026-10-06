@@ -90,6 +90,7 @@ The customer-facing application includes:
 - Live inventory
 - Persistent cart
 - Cash on Delivery checkout
+- Online payment through SSLCOMMERZ (optional; see `docs/PAYMENTS_SSLCOMMERZ.md`)
 - Customer registration
 - Customer login
 - Saved addresses

@@ -3,8 +3,16 @@ import {
 } from 'react';
 
 import {
+  OrderPaymentActions,
+} from '@/components/order-payment-actions';
+
+import {
   OrderStatusManager,
 } from '@/components/order-status-manager';
+
+import {
+  describePayment,
+} from '@/lib/order-payment';
 
 import {
   getOrders,
@@ -56,6 +64,14 @@ function who(changedBy: unknown): string {
 
   if (!changedBy || changedBy === 'admin') {
     return 'Admin';
+  }
+
+  if (changedBy === 'sslcommerz') {
+    return 'SSLCOMMERZ (payment gateway)';
+  }
+
+  if (changedBy === 'system') {
+    return 'System';
   }
 
   return String(changedBy);
@@ -160,6 +176,10 @@ export default async function OrdersPage() {
                         Total{' '}
                       </span>
                       ৳{order.total}
+
+                      <span className="mt-1 block text-xs font-normal text-[#6f6679]">
+                        {describePayment(order, when).short}
+                      </span>
                     </td>
 
                     <td className="block py-1.5 sm:table-cell sm:px-5 sm:py-4">
@@ -299,13 +319,53 @@ export default async function OrdersPage() {
                               Payment
                             </h2>
 
-                            <p className="mt-2">
-                              {order.paymentMethod === 'cod'
-                                ? 'Cash on delivery'
-                                : order.paymentMethod}
-                              {' · '}
-                              {label(order.paymentStatus)}
-                            </p>
+                            {(() => {
+                              const payment =
+                                describePayment(order, when);
+
+                              return (
+                                <>
+                                  <p className="mt-2">
+                                    {payment.method}
+                                    {' · '}
+                                    <span className="font-semibold">
+                                      {payment.status}
+                                    </span>
+                                  </p>
+
+                                  {payment.details.map(
+                                    (detail) => (
+                                      <p
+                                        key={detail}
+                                        className="text-xs text-[#6f6679]"
+                                      >
+                                        {detail}
+                                      </p>
+                                    ),
+                                  )}
+
+                                  {payment.notice && (
+                                    <p
+                                      className={`mt-3 rounded-lg px-3 py-2 text-xs leading-5 ${
+                                        payment.notice.tone === 'action'
+                                          ? 'bg-red-50 text-red-800'
+                                          : payment.notice.tone === 'warning'
+                                            ? 'bg-amber-50 text-amber-900'
+                                            : 'bg-[#f2edf8] text-[#38205f]'
+                                      }`}
+                                    >
+                                      {payment.notice.text}
+                                    </p>
+                                  )}
+
+                                  <OrderPaymentActions
+                                    orderNumber={order.orderNumber}
+                                    canCheck={payment.canCheck}
+                                    canMarkRefunded={payment.canMarkRefunded}
+                                  />
+                                </>
+                              );
+                            })()}
                           </section>
 
                           <section className="lg:col-span-3">

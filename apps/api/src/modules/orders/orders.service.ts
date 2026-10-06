@@ -39,6 +39,12 @@ import {
 } from '../../common/delivery-zone';
 
 import {
+  isWithinOnlinePaymentLimits,
+  ONLINE_PAYMENT_MAXIMUM,
+  ONLINE_PAYMENT_MINIMUM,
+} from '../payments/sslcommerz';
+
+import {
   Order,
   OrderDocument,
 } from './schemas/order.schema';
@@ -218,6 +224,25 @@ export class OrdersService {
       );
 
     /*
+     * 'cod' unless the customer chose to pay online. The gateway only
+     * takes amounts within a range, so an order outside it is refused
+     * here, before any stock is touched or a number is used.
+     */
+    const paymentMethod =
+      dto.paymentMethod ?? 'cod';
+
+    if (
+      paymentMethod !== 'cod' &&
+      !isWithinOnlinePaymentLimits(
+        subtotal + shippingFee,
+      )
+    ) {
+      throw new BadRequestException(
+        `Online payment is available for orders between BDT ${ONLINE_PAYMENT_MINIMUM} and BDT ${ONLINE_PAYMENT_MAXIMUM}. Choose cash on delivery for this order.`,
+      );
+    }
+
+    /*
      * Guest checkout resolves the customer from checkout
      * contact information.
      *
@@ -353,7 +378,7 @@ export class OrdersService {
             shippingFee,
 
           currency: 'BDT',
-          paymentMethod: 'cod',
+          paymentMethod,
           paymentStatus:
             'pending',
 
@@ -536,6 +561,295 @@ export class OrdersService {
     };
   }
 
+  /**
+   * The little a shopper's browser may know about an order without
+   * signing in: whether it was paid. No names, addresses or amounts.
+   */
+  async paymentSummary(
+    orderNumber: string,
+  ) {
+    const order =
+      await this.orderModel
+        .findOne({
+          orderNumber:
+            orderNumber
+              .trim()
+              .toUpperCase(),
+        })
+        .lean();
+
+    if (!order) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    return {
+      orderNumber:
+        order.orderNumber,
+      status: order.status,
+      paymentMethod:
+        order.paymentMethod,
+      paymentStatus:
+        order.paymentStatus,
+    };
+  }
+
+  /**
+   * Records that the gateway has confirmed payment in full for an online
+   * order. Safe to call twice: the second call changes nothing.
+   *
+   * It deliberately does not look at the order's status. If the order was
+   * cancelled before the money arrived, it becomes "cancelled and paid",
+   * which the admin shows as a refund that is due.
+   */
+  async recordOnlinePayment(
+    orderNumber: string,
+    payment: {
+      provider: string;
+      bankTranId: string;
+      channel: string;
+      amount: number;
+      paidAt: Date;
+      riskLevel: string;
+      riskTitle: string;
+      sandbox: boolean;
+    },
+  ) {
+    const current =
+      await this.orderModel
+        .findOne({ orderNumber })
+        .lean();
+
+    if (!current) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (
+      current.paymentStatus === 'paid' ||
+      current.paymentStatus === 'refunded'
+    ) {
+      return current;
+    }
+
+    const updated =
+      await this.orderModel
+        .findOneAndUpdate(
+          {
+            orderNumber,
+            // Only the first of two simultaneous notifications writes.
+            paymentStatus:
+              current.paymentStatus,
+          },
+          {
+            $set: {
+              paymentStatus: 'paid',
+              payment,
+            },
+
+            $push: {
+              statusHistory: {
+                status:
+                  current.status,
+                paymentStatus:
+                  'paid',
+                trackingNumber:
+                  current.trackingNumber ??
+                  '',
+                changedBy:
+                  payment.provider,
+                at: new Date(),
+              },
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+          },
+        )
+        .lean();
+
+    return (
+      updated ??
+      (await this.orderModel
+        .findOne({ orderNumber })
+        .lean())
+    );
+  }
+
+  /**
+   * Cancels an online order whose payment failed or was abandoned, and
+   * puts its stock back. Only an order that is still pending and unpaid
+   * is touched; anything else is returned as it is.
+   */
+  async cancelUnpaidOnlineOrder(
+    orderNumber: string,
+    paymentStatus:
+      | 'failed'
+      | 'cancelled',
+    changedBy: string,
+  ) {
+    const updated =
+      await this.orderModel
+        .findOneAndUpdate(
+          {
+            orderNumber,
+            status: 'pending',
+            paymentMethod: {
+              $ne: 'cod',
+            },
+            paymentStatus:
+              'pending',
+          },
+          {
+            $set: {
+              status: 'cancelled',
+              paymentStatus,
+            },
+
+            $push: {
+              statusHistory: {
+                status:
+                  'cancelled',
+                paymentStatus,
+                trackingNumber: '',
+                changedBy,
+                at: new Date(),
+              },
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+          },
+        )
+        .lean();
+
+    if (updated) {
+      await this.restoreCancelledStock(
+        updated,
+      );
+
+      return updated;
+    }
+
+    const latest =
+      await this.orderModel
+        .findOne({ orderNumber })
+        .lean();
+
+    if (!latest) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    return latest;
+  }
+
+  /**
+   * An admin confirms that a cancelled order which was paid online has
+   * been refunded at the gateway. The refund itself is made in the
+   * SSLCOMMERZ merchant panel.
+   */
+  async markRefunded(
+    orderNumber: string,
+    changedBy = 'admin',
+  ) {
+    const normalizedOrderNumber =
+      orderNumber
+        .trim()
+        .toUpperCase();
+
+    const actor =
+      changedBy.trim() || 'admin';
+
+    const current =
+      await this.orderModel
+        .findOne({
+          orderNumber:
+            normalizedOrderNumber,
+        })
+        .lean();
+
+    if (!current) {
+      throw new NotFoundException(
+        'Order not found',
+      );
+    }
+
+    if (
+      current.paymentStatus ===
+      'refunded'
+    ) {
+      return current;
+    }
+
+    if (
+      current.paymentMethod === 'cod' ||
+      current.paymentStatus !== 'paid'
+    ) {
+      throw new BadRequestException(
+        'Only an order that was paid online can be marked as refunded.',
+      );
+    }
+
+    if (
+      current.status !== 'cancelled'
+    ) {
+      throw new BadRequestException(
+        'Cancel the order before marking it as refunded.',
+      );
+    }
+
+    const updated =
+      await this.orderModel
+        .findOneAndUpdate(
+          {
+            orderNumber:
+              normalizedOrderNumber,
+            paymentStatus: 'paid',
+          },
+          {
+            $set: {
+              paymentStatus:
+                'refunded',
+            },
+
+            $push: {
+              statusHistory: {
+                status:
+                  current.status,
+                paymentStatus:
+                  'refunded',
+                trackingNumber:
+                  current.trackingNumber ??
+                  '',
+                changedBy: actor,
+                at: new Date(),
+              },
+            },
+          },
+          {
+            new: true,
+            runValidators: true,
+          },
+        )
+        .lean();
+
+    return (
+      updated ??
+      (await this.orderModel
+        .findOne({
+          orderNumber:
+            normalizedOrderNumber,
+        })
+        .lean())
+    );
+  }
+
   private async restoreCancelledStock(
     order: any,
   ) {
@@ -657,7 +971,9 @@ export class OrdersService {
 
       if (
         current.status ===
-        'cancelled'
+          'cancelled' &&
+        current.paymentStatus ===
+          'pending'
       ) {
         sameStatusUpdate.paymentStatus =
           'cancelled';
@@ -759,6 +1075,16 @@ export class OrdersService {
       );
     }
 
+    if (
+      current.paymentMethod !== 'cod' &&
+      current.paymentStatus !== 'paid' &&
+      dto.status !== 'cancelled'
+    ) {
+      throw new BadRequestException(
+        'This order is to be paid online and the payment has not been received. It can be confirmed once it is paid, or cancelled.',
+      );
+    }
+
     const update:
       Record<
         string,
@@ -790,9 +1116,16 @@ export class OrdersService {
         'paid';
     }
 
+    /*
+     * Cancelling an unpaid order closes its payment too. An order that
+     * was already paid online stays "paid": the money has to go back to
+     * the customer, and the admin shows it as a refund that is due.
+     */
     if (
       dto.status ===
-      'cancelled'
+        'cancelled' &&
+      current.paymentStatus ===
+        'pending'
     ) {
       update.paymentStatus =
         'cancelled';

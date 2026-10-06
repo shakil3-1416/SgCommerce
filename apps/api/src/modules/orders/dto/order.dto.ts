@@ -77,6 +77,14 @@ export class PlaceOrderDto {
   })
   @Type(() => CheckoutItemDto)
   items!: CheckoutItemDto[];
+
+  /*
+   * 'cod' (cash on delivery) when left out. 'sslcommerz' sends the
+   * customer to the payment gateway after the order is saved.
+   */
+  @IsOptional()
+  @IsIn(['cod', 'sslcommerz'])
+  paymentMethod?: 'cod' | 'sslcommerz';
 }
 
 export class UpdateOrderStatusDto {

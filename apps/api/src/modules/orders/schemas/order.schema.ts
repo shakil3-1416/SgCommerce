@@ -210,6 +210,48 @@ const OrderStatusChangeSchema =
     OrderStatusChange,
   );
 
+/*
+ * The summary of an online payment that a shop needs day to day. The
+ * full record, with everything the gateway reported, is in `payments`.
+ */
+@Schema({
+  _id: false,
+})
+export class OrderPayment {
+  @Prop({ type: String, required: true })
+  provider!: string;
+
+  /** The gateway's transaction id at the bank's end. */
+  @Prop({ type: String, default: '' })
+  bankTranId!: string;
+
+  /** How the customer paid, for example "BKASH-BKash". */
+  @Prop({ type: String, default: '' })
+  channel!: string;
+
+  @Prop({ type: Number, required: true })
+  amount!: number;
+
+  @Prop({ type: Date, required: true })
+  paidAt!: Date;
+
+  /** '1' when the gateway marked the payment as risky. */
+  @Prop({ type: String, default: '' })
+  riskLevel!: string;
+
+  @Prop({ type: String, default: '' })
+  riskTitle!: string;
+
+  /** True for a test payment made in the gateway's sandbox. */
+  @Prop({ type: Boolean, default: false })
+  sandbox!: boolean;
+}
+
+const OrderPaymentSchema =
+  SchemaFactory.createForClass(
+    OrderPayment,
+  );
+
 @Schema({
   timestamps: true,
   collection: 'orders',
@@ -288,7 +330,8 @@ export class Order {
   @Prop({
     type: String,
     default: 'cod',
-    enum: ['cod'],
+    /* 'cod' is cash on delivery; 'sslcommerz' is paid online. */
+    enum: ['cod', 'sslcommerz'],
   })
   paymentMethod!: string;
 
@@ -331,6 +374,13 @@ export class Order {
     default: [],
   })
   statusHistory!: OrderStatusChange[];
+
+  /* Set when an online payment has been confirmed by the gateway. */
+  @Prop({
+    type: OrderPaymentSchema,
+    default: null,
+  })
+  payment!: OrderPayment | null;
 }
 
 export const OrderSchema =

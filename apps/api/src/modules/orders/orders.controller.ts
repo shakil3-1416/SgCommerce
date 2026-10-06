@@ -25,13 +25,24 @@ import {
   OrdersService,
 } from './orders.service';
 
+import {
+  PaymentsService,
+} from '../payments/payments.service';
+
 @Controller('orders')
 export class OrdersController {
   constructor(
     private readonly orders:
       OrdersService,
+
+    private readonly payments:
+      PaymentsService,
   ) {}
 
+  /*
+   * Guest checkout. For an online payment the answer also carries
+   * `payment.gatewayUrl`, the page to send the customer to.
+   */
   @Post()
   placeOrder(
     @Body()
@@ -42,8 +53,8 @@ export class OrdersController {
     )
     idempotencyKey?: string,
   ) {
-    return this.orders
-      .placeOrder(
+    return this.payments
+      .checkout(
         dto,
         idempotencyKey,
       );
@@ -112,6 +123,30 @@ export class OrdersController {
       .updateStatus(
         orderNumber,
         dto,
+        request.user?.email ||
+          'admin',
+      );
+  }
+
+  /*
+   * A cancelled order that was paid online has been refunded in the
+   * SSLCOMMERZ merchant panel; record that here.
+   */
+  @UseGuards(AuthGuard)
+  @RequireRole('admin')
+  @Patch(
+    ':orderNumber/refunded',
+  )
+  markRefunded(
+    @Param('orderNumber')
+    orderNumber: string,
+
+    @Req()
+    request: any,
+  ) {
+    return this.orders
+      .markRefunded(
+        orderNumber,
         request.user?.email ||
           'admin',
       );

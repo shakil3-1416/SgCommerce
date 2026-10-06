@@ -15,7 +15,7 @@
     "seed:catalog": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/import-demo-catalog.ts",
     "seed:catalog-loadtest": "TS_NODE_PROJECT=tsconfig.seed.json node -r ts-node/register/transpile-only src/seed-catalog-loadtest.ts",
     "ids:backfill": "tsx src/backfill-business-ids.ts",
-    "test:ids": "tsx --test src/modules/sequences/business-ids.spec.ts src/common/phone.spec.ts src/common/delivery-zone.spec.ts"
+    "test:ids": "tsx --test src/modules/sequences/business-ids.spec.ts src/common/phone.spec.ts src/common/delivery-zone.spec.ts src/modules/payments/sslcommerz.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.3",
