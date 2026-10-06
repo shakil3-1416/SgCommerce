@@ -149,14 +149,73 @@ export class RefundsQueryDto extends PageQueryDto {
   status?: string;
 }
 
-/* Used by the admin's Developers page, not by the Developer API itself. */
+/* The rest is used by the admin's Developers pages, not by the Developer API itself. */
+
 export class CreateApiApplicationDto {
   @IsString()
   @Length(2, 80)
   name!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  description?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @IsString({ each: true })
   scopes!: string[];
+
+  /** 0 (never), 30, 90 or 365. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  expiresInDays?: number;
+}
+
+export class UpdateApiApplicationDto {
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  scopes?: string[];
+}
+
+export class RollApiKeyDto {
+  /** How long the old key keeps working: 0 (stops at once), 1, 24 or 168 hours. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  graceHours?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  expiresInDays?: number;
+}
+
+export class RequestLogQueryDto extends PageQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  app_id?: string;
+
+  @IsOptional()
+  @IsIn(['2xx', '4xx', '5xx'])
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  request_id?: string;
 }

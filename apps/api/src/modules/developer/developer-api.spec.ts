@@ -8,7 +8,12 @@ import { afterEach, describe, it } from 'node:test';
 import {
   currentEnvironment,
   decodeCursor,
+  dhakaDay,
   encodeCursor,
+  expiryDate,
+  graceEnd,
+  loggedPath,
+  recentDays,
   generateApiKey,
   grantableScopes,
   hashApiKey,
@@ -144,5 +149,48 @@ describe('pagination', () => {
     assert.equal(decodeCursor('not-a-cursor'), null);
     assert.equal(decodeCursor(Buffer.from('{"$gt":""}').toString('base64url')), null);
     assert.equal(decodeCursor({ $gt: '' }), null);
+  });
+});
+
+describe('credential lifetime', () => {
+  const from = new Date('2026-10-07T00:00:00.000Z');
+
+  it('gives an end date only for the offered choices; 0 means no end date', () => {
+    assert.equal(expiryDate(0, from), null);
+    assert.equal(expiryDate(undefined, from), null);
+    assert.equal(expiryDate(7, from), null);
+    assert.equal(expiryDate(30, from)!.toISOString(), '2026-11-06T00:00:00.000Z');
+    assert.equal(expiryDate('90', from)!.toISOString(), '2027-01-05T00:00:00.000Z');
+    assert.equal(expiryDate(365, from)!.toISOString(), '2027-10-07T00:00:00.000Z');
+  });
+
+  it('keeps a replaced key alive only for the offered grace periods; 0 stops it at once', () => {
+    assert.equal(graceEnd(0, from), null);
+    assert.equal(graceEnd(5, from), null);
+    assert.equal(graceEnd(1, from)!.toISOString(), '2026-10-07T01:00:00.000Z');
+    assert.equal(graceEnd(24, from)!.toISOString(), '2026-10-08T00:00:00.000Z');
+    assert.equal(graceEnd(168, from)!.toISOString(), '2026-10-14T00:00:00.000Z');
+  });
+});
+
+describe('usage days and logged paths', () => {
+  it('counts a day as it is in Bangladesh, six hours ahead of UTC', () => {
+    assert.equal(dhakaDay(new Date('2026-10-06T17:59:59Z')), '2026-10-06');
+    assert.equal(dhakaDay(new Date('2026-10-06T18:00:00Z')), '2026-10-07');
+    assert.deepEqual(recentDays(3, new Date('2026-10-07T06:00:00Z')), ['2026-10-05', '2026-10-06', '2026-10-07']);
+    assert.equal(recentDays(7).length, 7);
+    assert.equal(recentDays(7).at(-1), dhakaDay());
+  });
+
+  it('logs a path without its query string, so no phone number or email is kept', () => {
+    assert.equal(loggedPath('/api/v1/developer/customers?phone=01711000001&email=a@b.c'), '/api/v1/developer/customers');
+    assert.equal(loggedPath('/api/v1/developer/orders/SGO-0001001'), '/api/v1/developer/orders/SGO-0001001');
+    assert.equal(loggedPath(undefined), '');
+    assert.equal(loggedPath('/' + 'x'.repeat(500)).length, 200);
+  });
+
+  it('marks which scopes can change data', () => {
+    assert.deepEqual(SCOPES.filter((item) => item.access === 'write').map((item) => item.scope), ['products:write', 'inventory:write', 'customers:write', 'orders:write', 'returns:write', 'refunds:write', 'webhooks:manage']);
+    assert.ok(SCOPES.filter((item) => item.available).every((item) => item.access === 'read'), 'everything grantable today only reads');
   });
 });

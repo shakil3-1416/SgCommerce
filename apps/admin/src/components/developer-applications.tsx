@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import {
   useRouter,
 } from 'next/navigation';
@@ -10,48 +12,28 @@ import {
 } from 'react';
 
 import {
+  Badge,
+  IssuedKey,
+} from '@/components/developer-ui';
+
+import {
+  ScopePicker,
+} from '@/components/developer-scope-picker';
+
+import {
   type ApplicationSummary,
+  applicationState,
   createProblem,
-  firstRequest,
-  groupScopes,
+  errorRate,
+  expiryChoiceLabel,
   lastUsedLabel,
+  reasonFrom,
   type ScopeOption,
+  when,
 } from '@/lib/developer-applications';
 
-/* Times are shown in Bangladesh time, as on the Orders page. */
-const dhakaTime =
-  new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Dhaka',
-  });
-
-function when(value: unknown): string {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(String(value));
-
-  return Number.isNaN(date.getTime())
-    ? ''
-    : dhakaTime.format(date);
-}
-
-async function reasonFrom(response: Response): Promise<string> {
-  const body = await response.json().catch(() => null);
-
-  const reason = Array.isArray(body?.message)
-    ? body.message.join(', ')
-    : body?.message;
-
-  return typeof reason === 'string' && reason
-    ? reason
-    : 'That did not work. Try again.';
-}
-
 /**
- * Registers API applications and switches them off.
+ * The list of API applications, with a form to register a new one.
  *
  * A new application's key is shown once, right after it is created. It
  * is kept only in this page's memory: a reload, or leaving the page,
@@ -60,10 +42,14 @@ async function reasonFrom(response: Response): Promise<string> {
 export function DeveloperApplications({
   initialApplications,
   scopes,
+  expiryChoices,
+  maximumApplications,
   apiUrl,
 }: {
   initialApplications: ApplicationSummary[];
   scopes: ScopeOption[];
+  expiryChoices: number[];
+  maximumApplications: number;
   apiUrl: string;
 }) {
   const router = useRouter();
@@ -71,11 +57,20 @@ export function DeveloperApplications({
   const [applications, setApplications] =
     useState(initialApplications);
 
+  const [creating, setCreating] =
+    useState(initialApplications.length === 0);
+
   const [name, setName] =
+    useState('');
+
+  const [description, setDescription] =
     useState('');
 
   const [chosen, setChosen] =
     useState<string[]>([]);
+
+  const [expiresInDays, setExpiresInDays] =
+    useState(0);
 
   const [busy, setBusy] =
     useState(false);
@@ -87,16 +82,29 @@ export function DeveloperApplications({
   const [issued, setIssued] =
     useState<{ name: string; key: string } | null>(null);
 
-  const [copied, setCopied] =
+  const [search, setSearch] =
+    useState('');
+
+  const [showRevoked, setShowRevoked] =
     useState(false);
 
-  function toggle(scope: string) {
-    setChosen((current) =>
-      current.includes(scope)
-        ? current.filter((item) => item !== scope)
-        : [...current, scope],
-    );
-  }
+  const active = applications.filter(
+    (application) => application.status === 'active',
+  );
+
+  const revokedCount =
+    applications.length - active.length;
+
+  const needle = search.trim().toLowerCase();
+
+  const visible = applications.filter(
+    (application) =>
+      (showRevoked || application.status === 'active') &&
+      (needle === '' ||
+        application.name.toLowerCase().includes(needle) ||
+        application.id.toLowerCase().includes(needle) ||
+        (application.description ?? '').toLowerCase().includes(needle)),
+  );
 
   async function create(
     event: FormEvent<HTMLFormElement>,
@@ -107,7 +115,7 @@ export function DeveloperApplications({
       return;
     }
 
-    const invalid = createProblem(name, chosen);
+    const invalid = createProblem(name, chosen, description);
 
     if (invalid) {
       setProblem(invalid);
@@ -127,7 +135,9 @@ export function DeveloperApplications({
           },
           body: JSON.stringify({
             name: name.trim(),
+            description: description.trim(),
             scopes: chosen,
+            expiresInDays,
           }),
         },
       );
@@ -144,13 +154,15 @@ export function DeveloperApplications({
         name: application.name,
         key,
       });
-      setCopied(false);
       setApplications((current) => [
         application,
         ...current,
       ]);
       setName('');
+      setDescription('');
       setChosen([]);
+      setExpiresInDays(0);
+      setCreating(false);
 
       // Keep the server-rendered parts of the page in step.
       router.refresh();
@@ -163,286 +175,323 @@ export function DeveloperApplications({
     }
   }
 
-  async function revoke(
-    application: ApplicationSummary,
-  ) {
-    if (
-      !window.confirm(
-        `Revoke "${application.name}"? Its key stops working immediately and cannot be switched back on. Any system still using it will be refused.`,
-      )
-    ) {
-      return;
-    }
-
-    setProblem('');
-
-    try {
-      const response = await fetch(
-        `/api/backend/developer-applications/${encodeURIComponent(application.id)}/revoke`,
-        { method: 'POST' },
-      );
-
-      if (!response.ok) {
-        setProblem(await reasonFrom(response));
-        return;
-      }
-
-      const updated = await response.json();
-
-      setApplications((current) =>
-        current.map((item) =>
-          item.id === updated.id ? updated : item,
-        ),
-      );
-
-      router.refresh();
-    } catch {
-      setProblem(
-        'Check your internet connection, then try again.',
-      );
-    }
-  }
-
-  async function copyKey() {
-    if (!issued) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(issued.key);
-      setCopied(true);
-    } catch {
-      // The key is on screen and can be selected by hand.
-      setCopied(false);
-    }
-  }
-
   return (
-    <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-      <form
-        onSubmit={create}
-        className="h-fit rounded-2xl border border-[#e8e2ef] bg-white p-6"
-      >
-        <h2 className="text-xl font-bold text-[#1f1235]">
-          New application
-        </h2>
+    <div className="mt-8 space-y-6">
+      {issued && (
+        <IssuedKey
+          name={issued.name}
+          secret={issued.key}
+          apiUrl={apiUrl}
+          note="If it is lost, replace the key on the application's page."
+        />
+      )}
 
-        <p className="mt-1 text-sm text-[#6f6679]">
-          One application for each system that connects.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-[#1f1235]">
+            Applications
+          </h2>
 
-        <label className="mt-5 block">
-          <span className="text-sm font-semibold text-[#1f1235]">
-            Name
-          </span>
-
-          <input
-            value={name}
-            onChange={(event) =>
-              setName(event.target.value)
-            }
-            maxLength={80}
-            placeholder="Warehouse ERP"
-            className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
-          />
-        </label>
-
-        <fieldset className="mt-5">
-          <legend className="text-sm font-semibold text-[#1f1235]">
-            Permissions
-          </legend>
-
-          <p className="mt-1 text-xs text-[#6f6679]">
-            Give only what the system needs. All of these only
-            read; none can change your shop.
+          <p className="mt-1 text-sm text-[#6f6679]">
+            {active.length} active of {maximumApplications} allowed
+            {revokedCount > 0
+              ? ` · ${revokedCount} revoked`
+              : ''}
           </p>
+        </div>
 
-          <div className="mt-3 space-y-4">
-            {groupScopes(scopes).map((group) => (
-              <div key={group.group}>
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#6f6679]">
-                  {group.group}
-                </p>
-
-                {group.scopes.map((scope) => (
-                  <label
-                    key={scope.scope}
-                    className="mt-2 flex cursor-pointer items-start gap-3 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={chosen.includes(
-                        scope.scope,
-                      )}
-                      onChange={() =>
-                        toggle(scope.scope)
-                      }
-                      className="mt-1"
-                    />
-
-                    <span>
-                      <span className="block font-mono text-[#1f1235]">
-                        {scope.scope}
-                      </span>
-
-                      <span className="block text-[#6f6679]">
-                        {scope.allows}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            ))}
-          </div>
-        </fieldset>
-
-        {problem && (
-          <p
-            role="alert"
-            className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        {!creating && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(true);
+              setProblem('');
+            }}
+            className="rounded-xl bg-[#1f1235] px-5 py-3 text-sm font-bold text-white"
           >
-            {problem}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-6 w-full rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white disabled:opacity-60"
-        >
-          {busy
-            ? 'Creating...'
-            : 'Create application'}
-        </button>
-      </form>
-
-      <div className="min-w-0 space-y-4">
-        {issued && (
-          <section
-            aria-label="New API key"
-            className="rounded-2xl border-2 border-[#38205f] bg-[#faf8fc] p-6"
-          >
-            <h2 className="text-lg font-bold text-[#1f1235]">
-              Key for {issued.name}
-            </h2>
-
-            <p className="mt-1 text-sm text-[#4f455c]">
-              Copy it now and store it somewhere safe. It is shown
-              only this once: when you leave or reload this page it
-              cannot be shown again. If it is lost, revoke the
-              application and create a new one.
-            </p>
-
-            <p className="mt-4 break-all rounded-xl border border-[#d8cee6] bg-white px-4 py-3 font-mono text-sm text-[#1f1235]">
-              {issued.key}
-            </p>
-
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={copyKey}
-                className="rounded-lg bg-[#1f1235] px-4 py-2 text-sm font-semibold text-white"
-              >
-                Copy key
-              </button>
-
-              <span
-                role="status"
-                className="text-sm text-[#4f455c]"
-              >
-                {copied ? 'Copied.' : ''}
-              </span>
-            </div>
-
-            <p className="mt-5 text-sm font-semibold text-[#1f1235]">
-              A first request to check it works
-            </p>
-
-            <pre className="mt-2 overflow-x-auto rounded-xl bg-[#1f1235] px-4 py-3 text-xs text-white">
-              {firstRequest(apiUrl, issued.key)}
-            </pre>
-          </section>
-        )}
-
-        {applications.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-[#d8cee6] bg-white p-8 text-center text-[#6f6679]">
-            No applications yet. Create one for the first system
-            you want to connect.
-          </p>
-        ) : (
-          applications.map((application) => (
-            <article
-              key={application.id}
-              className="rounded-2xl border border-[#e8e2ef] bg-white p-6"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="break-words text-lg font-bold text-[#1f1235]">
-                    {application.name}
-                  </h3>
-
-                  <p className="mt-1 font-mono text-xs text-[#6f6679]">
-                    {application.id}
-                    {' · '}
-                    {application.keyHint}
-                  </p>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      application.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-[#f2edf8] text-[#6f6679]'
-                    }`}
-                  >
-                    {application.status === 'active'
-                      ? 'Active'
-                      : 'Revoked'}
-                    {' · '}
-                    {application.environment === 'test'
-                      ? 'Test'
-                      : 'Live'}
-                  </span>
-
-                  {application.status === 'active' && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        revoke(application)
-                      }
-                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {application.scopes.map((scope) => (
-                  <span
-                    key={scope}
-                    className="rounded-full bg-[#f2edf8] px-3 py-1 font-mono text-xs text-[#38205f]"
-                  >
-                    {scope}
-                  </span>
-                ))}
-              </div>
-
-              <p className="mt-4 text-xs text-[#6f6679]">
-                {lastUsedLabel(application, when)}
-                {when(application.createdAt)
-                  ? ` · Created ${when(application.createdAt)}`
-                  : ''}
-                {application.createdBy
-                  ? ` by ${application.createdBy}`
-                  : ''}
-              </p>
-            </article>
-          ))
+            New application
+          </button>
         )}
       </div>
+
+      {creating && (
+        <form
+          onSubmit={create}
+          aria-label="New application"
+          className="rounded-2xl border border-[#e8e2ef] bg-white p-6"
+        >
+          <h3 className="text-lg font-bold text-[#1f1235]">
+            New application
+          </h3>
+
+          <p className="mt-1 text-sm text-[#6f6679]">
+            One application for each system that connects, so each
+            can be changed or switched off on its own.
+          </p>
+
+          <div className="mt-5 grid gap-6 lg:grid-cols-2">
+            <div className="space-y-5">
+              <label className="block">
+                <span className="text-sm font-semibold text-[#1f1235]">
+                  Name
+                </span>
+
+                <input
+                  value={name}
+                  onChange={(event) =>
+                    setName(event.target.value)
+                  }
+                  maxLength={80}
+                  placeholder="Warehouse ERP"
+                  className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold text-[#1f1235]">
+                  Description
+                </span>
+
+                <span className="ml-2 text-xs font-normal text-[#6f6679]">
+                  Optional
+                </span>
+
+                <textarea
+                  value={description}
+                  onChange={(event) =>
+                    setDescription(event.target.value)
+                  }
+                  maxLength={300}
+                  rows={3}
+                  placeholder="What it does and who to contact about it"
+                  className="mt-2 w-full rounded-xl border border-[#e8e2ef] px-4 py-3"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold text-[#1f1235]">
+                  Key lifetime
+                </span>
+
+                <select
+                  value={expiresInDays}
+                  onChange={(event) =>
+                    setExpiresInDays(
+                      Number(event.target.value),
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-[#e8e2ef] bg-white px-4 py-3"
+                >
+                  {expiryChoices.map((days) => (
+                    <option
+                      key={days}
+                      value={days}
+                    >
+                      {expiryChoiceLabel(days)}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="mt-1 block text-xs text-[#6f6679]">
+                  A key with an end date limits the harm if it
+                  leaks. You can replace a key at any time.
+                </span>
+              </label>
+            </div>
+
+            <fieldset>
+              <legend className="text-sm font-semibold text-[#1f1235]">
+                Permissions
+              </legend>
+
+              <p className="mb-3 mt-1 text-xs text-[#6f6679]">
+                Give only what the system needs. You can change
+                these later.
+              </p>
+
+              <ScopePicker
+                scopes={scopes}
+                chosen={chosen}
+                onChange={setChosen}
+              />
+            </fieldset>
+          </div>
+
+          {problem && (
+            <p
+              role="alert"
+              className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            >
+              {problem}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-xl bg-[#1f1235] px-5 py-3 font-bold text-white disabled:opacity-60"
+            >
+              {busy
+                ? 'Creating...'
+                : 'Create application'}
+            </button>
+
+            {applications.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCreating(false);
+                  setProblem('');
+                }}
+                className="rounded-xl border border-[#e8e2ef] px-5 py-3 font-semibold text-[#1f1235]"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+
+      {applications.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-[#d8cee6] bg-white p-8 text-center text-[#6f6679]">
+          No applications yet. Create one for the first system you
+          want to connect.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-4">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search by name or ID"
+              aria-label="Search applications"
+              className="w-full max-w-xs rounded-xl border border-[#e8e2ef] bg-white px-4 py-2.5 text-sm"
+            />
+
+            {revokedCount > 0 && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#4f455c]">
+                <input
+                  type="checkbox"
+                  checked={showRevoked}
+                  onChange={(event) =>
+                    setShowRevoked(
+                      event.target.checked,
+                    )
+                  }
+                />
+                Show revoked
+              </label>
+            )}
+          </div>
+
+          {visible.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[#d8cee6] bg-white p-6 text-center text-sm text-[#6f6679]">
+              No application matches.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {visible.map((application) => {
+                const state =
+                  applicationState(application);
+
+                return (
+                  <li
+                    key={application.id}
+                    className="rounded-2xl border border-[#e8e2ef] bg-white p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/developers/${encodeURIComponent(application.id)}`}
+                          className="break-words text-lg font-bold text-[#1f1235] underline-offset-4 hover:underline"
+                        >
+                          {application.name}
+                        </Link>
+
+                        {application.description && (
+                          <p className="mt-1 break-words text-sm text-[#4f455c]">
+                            {application.description}
+                          </p>
+                        )}
+
+                        <p className="mt-2 break-all font-mono text-xs text-[#6f6679]">
+                          {application.id}
+                          {' · '}
+                          {application.keyHint}
+                        </p>
+                      </div>
+
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <Badge tone={state.tone}>
+                          {state.label}
+                        </Badge>
+
+                        <Badge tone="muted">
+                          {application.environment === 'test'
+                            ? 'Test'
+                            : 'Live'}
+                        </Badge>
+
+                        <Link
+                          href={`/developers/${encodeURIComponent(application.id)}`}
+                          className="rounded-lg border border-[#d8cee6] px-3 py-2 text-sm font-semibold text-[#38205f]"
+                        >
+                          Manage
+                        </Link>
+                      </div>
+                    </div>
+
+                    <dl className="mt-4 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <dt className="text-xs text-[#6f6679]">
+                          Requests today
+                        </dt>
+                        <dd className="font-semibold text-[#1f1235]">
+                          {application.usage?.today.requests ?? 0}
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt className="text-xs text-[#6f6679]">
+                          Last 7 days
+                        </dt>
+                        <dd className="font-semibold text-[#1f1235]">
+                          {application.usage?.weekRequests ?? 0}{' '}
+                          <span className="ml-1 font-normal text-[#6f6679]">
+                            {errorRate(application.usage)} errors
+                          </span>
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt className="text-xs text-[#6f6679]">
+                          Permissions
+                        </dt>
+                        <dd className="font-semibold text-[#1f1235]">
+                          {application.scopes.length}
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt className="text-xs text-[#6f6679]">
+                          Activity
+                        </dt>
+                        <dd className="text-[#4f455c]">
+                          {lastUsedLabel(application, when)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   );
 }

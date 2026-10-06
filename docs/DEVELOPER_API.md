@@ -57,6 +57,25 @@ Authorization: Bearer sg_live_0123456789abcdef0123456789abcdef01234567
 - Send the key only over HTTPS and only from a server. Do not put it in
   a web page or a mobile app.
 
+### Managing a key
+
+All of this is done in the admin under **Developers**, on the
+application's page.
+
+- **End date.** A key can be given a lifetime of 30, 90 or 365 days. After
+  that it is refused with `credential_expired`. The admin flags a key in
+  its last two weeks.
+- **Replacing a key.** "Replace key" issues a new key and shows it once.
+  The old key can be kept working for 1 hour, 1 day or 7 days, so the
+  system can be switched over without an outage; after that it is refused
+  with `credential_replaced`. Replace a key at once if it may have leaked.
+- **Changing permissions** takes effect on the application's next request.
+  The key stays the same.
+- **Revoking** stops the key immediately and cannot be undone.
+
+Every change is written to the application's history with who made it
+and when.
+
 ### Environments
 
 | Prefix | Environment | Where it works |
@@ -110,6 +129,8 @@ A collection:
 ```
 
 Every response carries `X-Request-ID`. Quote it when reporting a problem.
+The merchant can look a request up by that id in the admin, under
+**Developers, Requests**.
 
 ### Identifiers
 
@@ -164,6 +185,8 @@ Read `code` in a program. `message` is for a person and may be reworded.
 | 401 | `authentication_required` | No key was sent |
 | 401 | `invalid_credential` | The key is not valid |
 | 401 | `credential_revoked` | The application was revoked |
+| 401 | `credential_expired` | The key has passed its end date |
+| 401 | `credential_replaced` | The key was replaced and its grace period is over |
 | 401 | `credential_environment_mismatch` | A test key on the live API, or the reverse |
 | 403 | `insufficient_scope` | The key lacks the scope in `details.required_scope` |
 | 404 | `product_not_found`, `category_not_found`, `inventory_not_found`, `customer_not_found`, `order_not_found`, `payment_not_found`, `return_not_found`, `refund_not_found` | No such record |
@@ -192,7 +215,19 @@ There is also a general limit of 300 requests per minute per network
 address, shared with everything else that address does. Its `429` has a
 plain body: `{ "statusCode": 429, "message": "..." }`.
 
+## What is recorded
+
+Each request from a recognised application is logged: the request id,
+the application, method, path, status, error code, time taken, network
+address and user agent. Query strings, bodies and keys are never logged.
+The most recent 200,000 requests are kept. Requests per application per
+day are counted separately and shown in the admin.
+
 ## Reference
+
+The admin shows this reference too, under **Developers, API reference**.
+It is drawn from the running API, so it always matches the deployed
+version.
 
 ### Application
 
@@ -360,3 +395,4 @@ Planned, in this order. None of it is available yet.
 | Date | Change |
 | --- | --- |
 | 2026-10-07 | Stage 1: applications, credentials and scopes; read access to products, categories, inventory, customers, orders, payments, returns and refunds |
+| 2026-10-07 | Key end dates, key replacement with a grace period, editable permissions, change history, request log and usage counts. New error codes `credential_expired` and `credential_replaced` |

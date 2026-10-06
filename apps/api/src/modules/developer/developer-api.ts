@@ -42,6 +42,8 @@ export const KEY_PREFIX: Record<ApiEnvironment, string> = {
 export interface ScopeDefinition {
   scope: string;
   group: string;
+  /** 'write' scopes can change the shop's data and deserve a second look. */
+  access: 'read' | 'write';
   allows: string;
   /**
    * False while no endpoint uses the scope yet. Such a scope cannot be
@@ -52,20 +54,20 @@ export interface ScopeDefinition {
 }
 
 export const SCOPES: readonly ScopeDefinition[] = [
-  { scope: 'products:read', group: 'Catalog', allows: 'Read products, variants and categories', available: true },
-  { scope: 'products:write', group: 'Catalog', allows: 'Create and update products', available: false },
-  { scope: 'inventory:read', group: 'Inventory', allows: 'Read stock levels and stock movements', available: true },
-  { scope: 'inventory:write', group: 'Inventory', allows: 'Change stock', available: false },
-  { scope: 'customers:read', group: 'Customers', allows: 'Read customers and their addresses', available: true },
-  { scope: 'customers:write', group: 'Customers', allows: 'Update customer profiles', available: false },
-  { scope: 'orders:read', group: 'Orders', allows: 'Read orders, their lines and history', available: true },
-  { scope: 'orders:write', group: 'Orders', allows: 'Cancel orders and change their status', available: false },
-  { scope: 'payments:read', group: 'Payments', allows: 'Read the state of payments', available: true },
-  { scope: 'returns:read', group: 'Returns', allows: 'Read returns', available: true },
-  { scope: 'returns:write', group: 'Returns', allows: 'Create and manage returns', available: false },
-  { scope: 'refunds:read', group: 'Refunds', allows: 'Read the state of refunds', available: true },
-  { scope: 'refunds:write', group: 'Refunds', allows: 'Refund operations', available: false },
-  { scope: 'webhooks:manage', group: 'Platform', allows: 'Configure webhook subscriptions', available: false },
+  { scope: 'products:read', group: 'Catalog', access: 'read', allows: 'Read products, variants and categories', available: true },
+  { scope: 'products:write', group: 'Catalog', access: 'write', allows: 'Create and update products', available: false },
+  { scope: 'inventory:read', group: 'Inventory', access: 'read', allows: 'Read stock levels and stock movements', available: true },
+  { scope: 'inventory:write', group: 'Inventory', access: 'write', allows: 'Change stock', available: false },
+  { scope: 'customers:read', group: 'Customers', access: 'read', allows: 'Read customers and their addresses', available: true },
+  { scope: 'customers:write', group: 'Customers', access: 'write', allows: 'Update customer profiles', available: false },
+  { scope: 'orders:read', group: 'Orders', access: 'read', allows: 'Read orders, their lines and history', available: true },
+  { scope: 'orders:write', group: 'Orders', access: 'write', allows: 'Cancel orders and change their status', available: false },
+  { scope: 'payments:read', group: 'Payments', access: 'read', allows: 'Read the state of payments', available: true },
+  { scope: 'returns:read', group: 'Returns', access: 'read', allows: 'Read returns', available: true },
+  { scope: 'returns:write', group: 'Returns', access: 'write', allows: 'Create and manage returns', available: false },
+  { scope: 'refunds:read', group: 'Refunds', access: 'read', allows: 'Read the state of refunds', available: true },
+  { scope: 'refunds:write', group: 'Refunds', access: 'write', allows: 'Refund operations', available: false },
+  { scope: 'webhooks:manage', group: 'Platform', access: 'write', allows: 'Configure webhook subscriptions', available: false },
 ];
 
 const GRANTABLE = new Set(SCOPES.filter((item) => item.available).map((item) => item.scope));
@@ -197,3 +199,70 @@ export function decodeCursor(cursor: unknown): string | null {
 /** Requests one application may make per minute. */
 export const READ_RATE_LIMIT = 240;
 export const RATE_WINDOW_SECONDS = 60;
+
+/* ------------------------------------------------------------------ */
+/* Credential lifetime                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How long a key may live, in days. 0 means it does not expire.
+ * A key with an end date limits the damage of one that leaks unnoticed.
+ */
+export const EXPIRY_CHOICES = [0, 30, 90, 365] as const;
+
+/**
+ * When a key is replaced, how many hours the old key keeps working, so
+ * the system using it can be switched over without an outage.
+ * 0 stops the old key at once.
+ */
+export const ROLL_GRACE_CHOICES = [0, 1, 24, 168] as const;
+
+export function expiryDate(days: unknown, from: Date = new Date()): Date | null {
+  const value = Number(days);
+
+  if (!(EXPIRY_CHOICES as readonly number[]).includes(value) || value === 0) {
+    return null;
+  }
+
+  return new Date(from.getTime() + value * 24 * 60 * 60 * 1000);
+}
+
+export function graceEnd(hours: unknown, from: Date = new Date()): Date | null {
+  const value = Number(hours);
+
+  if (!(ROLL_GRACE_CHOICES as readonly number[]).includes(value) || value === 0) {
+    return null;
+  }
+
+  return new Date(from.getTime() + value * 60 * 60 * 1000);
+}
+
+/* ------------------------------------------------------------------ */
+/* Usage                                                               */
+/* ------------------------------------------------------------------ */
+
+const DHAKA_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Dhaka',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/** The calendar day in Bangladesh, as "2026-10-07". Usage is counted per such day. */
+export function dhakaDay(date: Date = new Date()): string {
+  return DHAKA_DAY.format(date);
+}
+
+/** The last `count` days, oldest first, ending today. */
+export function recentDays(count: number, today: Date = new Date()): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    dhakaDay(new Date(today.getTime() - (count - 1 - index) * 24 * 60 * 60 * 1000)),
+  );
+}
+
+/** A path as it is logged: no query string, so no phone number or email ends up in the log. */
+export function loggedPath(originalUrl: unknown): string {
+  const path = String(originalUrl ?? '').split('?')[0] ?? '';
+
+  return path.length > 200 ? path.slice(0, 200) : path;
+}

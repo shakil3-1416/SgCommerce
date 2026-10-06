@@ -78,9 +78,47 @@ export async function getRefunds() {
   );
 }
 
-/* The Developers page: registered API applications and the scopes that can be granted. */
+/*
+ * The Developers section: API applications, what they asked for, and
+ * the API's reference.
+ */
+
+/** The address outside programs call: the API's public address with /developer added. */
+export function developerApiUrl(): string {
+  const api =
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.API_URL ??
+    'http://localhost:4000/api/v1';
+
+  return `${api.replace(/\/+$/, '')}/developer`;
+}
+
 export async function getDeveloperOverview() {
   return adminFetch(
     '/developer-applications',
+  );
+}
+
+export async function getDeveloperApplication(
+  appId: string,
+) {
+  return adminFetch(
+    `/developer-applications/${encodeURIComponent(appId)}`,
+  );
+}
+
+export async function getDeveloperRequests(
+  query: URLSearchParams,
+) {
+  const text = query.toString();
+
+  return adminFetch(
+    `/developer-applications/requests${text ? `?${text}` : ''}`,
+  );
+}
+
+export async function getDeveloperReference() {
+  return adminFetch(
+    '/developer-applications/reference',
   );
 }

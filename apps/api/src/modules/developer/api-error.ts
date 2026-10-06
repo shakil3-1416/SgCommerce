@@ -5,6 +5,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 
+import { ApiRequestLogService } from './api-request-log.service';
 import { newRequestId } from './developer-api';
 
 /*
@@ -116,7 +117,9 @@ export function describeError(exception: unknown): ErrorDescription {
  */
 @Catch()
 export class DeveloperExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
+  constructor(private readonly log: ApiRequestLogService) {}
+
+  async catch(exception: unknown, host: ArgumentsHost): Promise<void> {
     const http = host.switchToHttp();
     const request = http.getRequest();
     const response = http.getResponse();
@@ -130,6 +133,9 @@ export class DeveloperExceptionFilter implements ExceptionFilter {
     }
 
     response.setHeader('X-Request-ID', requestId);
+
+    // A refused or failed request is part of the application's record too.
+    await this.log.record(request, error.status, error.code);
 
     response.status(error.status).json({
       error: {

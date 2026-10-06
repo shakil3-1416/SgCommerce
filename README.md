@@ -163,6 +163,8 @@ Other systems (an ERP, a courier service, accounting) connect through the Develo
 
 Stage 1 is read-only: products, categories, inventory, customers, orders, payments, returns and refunds. Writing and webhooks are planned. Reference: `docs/DEVELOPER_API.md`.
 
+The **Developers** section of the admin has three parts. *Applications*: create, describe, set a key's lifetime, change permissions, replace a key with a grace period, revoke, and see each application's usage and change history. *Requests*: a log of every request with its status, error code, time taken and request ID, searchable by that ID. *API reference*: every endpoint, scope and error code, drawn from the running API.
+
 ## Documentation
 
 | Document | Covers |

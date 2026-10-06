@@ -13,10 +13,17 @@ import { Refund, RefundSchema } from '../refunds/schemas/refund.schema';
 import { ReturnRequest, ReturnRequestSchema } from '../returns/schemas/return.schema';
 import { ApiApplicationsService } from './api-applications.service';
 import { ApiKeyGuard } from './api-key.guard';
+import { ApiRequestLogService } from './api-request-log.service';
 import { DeveloperApplicationsController } from './developer-applications.controller';
 import { DeveloperController } from './developer.controller';
 import { DeveloperReadService } from './developer-read.service';
 import { ApiApplication, ApiApplicationSchema } from './schemas/api-application.schema';
+import {
+  ApiRequestLog,
+  ApiRequestLogSchema,
+  ApiUsage,
+  ApiUsageSchema,
+} from './schemas/api-request-log.schema';
 
 /*
  * The Developer API: applications, their credentials and scopes, and the
@@ -31,6 +38,8 @@ import { ApiApplication, ApiApplicationSchema } from './schemas/api-application.
     forwardRef(() => AuthModule),
     MongooseModule.forFeature([
       { name: ApiApplication.name, schema: ApiApplicationSchema },
+      { name: ApiRequestLog.name, schema: ApiRequestLogSchema },
+      { name: ApiUsage.name, schema: ApiUsageSchema },
       { name: Product.name, schema: ProductSchema },
       { name: Category.name, schema: CategorySchema },
       { name: Inventory.name, schema: InventorySchema },
@@ -43,6 +52,6 @@ import { ApiApplication, ApiApplicationSchema } from './schemas/api-application.
     ]),
   ],
   controllers: [DeveloperController, DeveloperApplicationsController],
-  providers: [ApiApplicationsService, DeveloperReadService, ApiKeyGuard],
+  providers: [ApiApplicationsService, ApiRequestLogService, DeveloperReadService, ApiKeyGuard],
 })
 export class DeveloperModule {}

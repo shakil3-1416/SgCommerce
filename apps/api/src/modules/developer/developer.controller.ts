@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req, UseFilters, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
 
 import { DeveloperExceptionFilter } from './api-error';
 import { ApiKeyGuard, RequireScope } from './api-key.guard';
@@ -9,6 +9,7 @@ import {
   READ_RATE_LIMIT,
 } from './developer-api';
 import { DeveloperReadService } from './developer-read.service';
+import { DeveloperRequestLogInterceptor } from './developer-request-log.interceptor';
 import {
   CustomersQueryDto,
   InventoryQueryDto,
@@ -30,6 +31,7 @@ import { applicationResource } from './resources';
  */
 @Controller('developer')
 @UseGuards(ApiKeyGuard)
+@UseInterceptors(DeveloperRequestLogInterceptor)
 @UseFilters(DeveloperExceptionFilter)
 export class DeveloperController {
   constructor(private readonly read: DeveloperReadService) {}

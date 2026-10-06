@@ -35,6 +35,7 @@ export class ApiKeyGuard implements CanActivate {
 
     // First, so that even a refused request can be quoted and found.
     request.requestId = newRequestId();
+    request.developerStartedAt = Date.now();
     response.setHeader('X-Request-ID', request.requestId);
 
     const presented = readBearer(request.headers?.authorization);
