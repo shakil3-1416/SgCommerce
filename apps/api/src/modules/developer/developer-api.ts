@@ -57,14 +57,14 @@ export const SCOPES: readonly ScopeDefinition[] = [
   { scope: 'products:read', group: 'Catalog', access: 'read', allows: 'Read products, variants and categories', available: true },
   { scope: 'products:write', group: 'Catalog', access: 'write', allows: 'Create and update products', available: false },
   { scope: 'inventory:read', group: 'Inventory', access: 'read', allows: 'Read stock levels and stock movements', available: true },
-  { scope: 'inventory:write', group: 'Inventory', access: 'write', allows: 'Change stock', available: false },
+  { scope: 'inventory:write', group: 'Inventory', access: 'write', allows: 'Change stock', available: true },
   { scope: 'customers:read', group: 'Customers', access: 'read', allows: 'Read customers and their addresses', available: true },
   { scope: 'customers:write', group: 'Customers', access: 'write', allows: 'Update customer profiles', available: false },
   { scope: 'orders:read', group: 'Orders', access: 'read', allows: 'Read orders, their lines and history', available: true },
-  { scope: 'orders:write', group: 'Orders', access: 'write', allows: 'Cancel orders and change their status', available: false },
+  { scope: 'orders:write', group: 'Orders', access: 'write', allows: 'Cancel orders and change their status', available: true },
   { scope: 'payments:read', group: 'Payments', access: 'read', allows: 'Read the state of payments', available: true },
   { scope: 'returns:read', group: 'Returns', access: 'read', allows: 'Read returns', available: true },
-  { scope: 'returns:write', group: 'Returns', access: 'write', allows: 'Create and manage returns', available: false },
+  { scope: 'returns:write', group: 'Returns', access: 'write', allows: 'Create and manage returns', available: true },
   { scope: 'refunds:read', group: 'Refunds', access: 'read', allows: 'Read the state of refunds', available: true },
   { scope: 'refunds:write', group: 'Refunds', access: 'write', allows: 'Refund operations', available: false },
   { scope: 'webhooks:manage', group: 'Platform', access: 'write', allows: 'Configure webhook subscriptions', available: false },
@@ -196,9 +196,62 @@ export function decodeCursor(cursor: unknown): string | null {
 /* Rate limits                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Requests one application may make per minute. */
+/** Requests one application may make per minute: reads, and separately, writes. */
 export const READ_RATE_LIMIT = 240;
+export const WRITE_RATE_LIMIT = 60;
 export const RATE_WINDOW_SECONDS = 60;
+
+/* ------------------------------------------------------------------ */
+/* Idempotency                                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Every write carries an Idempotency-Key chosen by the caller. Sending
+ * the same request again with the same key returns the first answer
+ * instead of doing the thing twice: networks fail and programs retry,
+ * and a retried "create return" must never create two returns.
+ */
+
+/** How long a key is remembered. */
+export const IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
+
+const IDEMPOTENCY_KEY = /^[\x21-\x7e]{8,255}$/;
+
+/** Why a key cannot be used, or '' when it can. `key` is the header's value. */
+export function idempotencyKeyProblem(key: unknown): string {
+  if (key === undefined || key === null || key === '') {
+    return 'missing';
+  }
+
+  return typeof key === 'string' && IDEMPOTENCY_KEY.test(key) ? '' : 'invalid';
+}
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonical);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+    );
+  }
+
+  return value;
+}
+
+/**
+ * Identifies what a request asks for: method, path and body. The same
+ * key with a different fingerprint is a mistake by the caller, not a
+ * retry. The order of a body's fields does not matter.
+ */
+export function requestFingerprint(method: string, path: string, body: unknown): string {
+  return createHash('sha256')
+    .update(JSON.stringify([method.toUpperCase(), path, canonical(body ?? null)]))
+    .digest('hex');
+}
 
 /* ------------------------------------------------------------------ */
 /* Credential lifetime                                                 */

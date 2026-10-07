@@ -64,7 +64,12 @@ describe('resources', () => {
     assert.deepEqual(order.customer, { id: `cus_${id}`, name: 'Rahim Uddin', phone: '01711000001', email: 'rahim@example.com' });
     assert.deepEqual(order.shipping_address, { address_line1: 'House 12', address_line2: '', district: 'Dhaka', area: 'Dhanmondi', postal_code: '1209', delivery_zone: 'inside_dhaka' });
     assert.deepEqual(order.lines, [{ product_id: 'SGP-000217', sku: 'SGP-000217-01', product_name: 'Tee', variant_title: 'Black / M', unit_price: 950, quantity: 1, line_total: 950 }]);
-    assert.deepEqual(order.history, [{ status: 'pending', payment_status: 'pending', tracking_number: '', actor: 'guest', at: '2026-10-07T02:00:00.000Z' }]);
+    // a change made by a person carries no application or request
+    assert.deepEqual(order.history, [{ status: 'pending', payment_status: 'pending', tracking_number: '', actor: 'guest', actor_type: null, actor_id: null, request_id: null, at: '2026-10-07T02:00:00.000Z' }]);
+
+    // a change made through this API names the application and the request
+    const viaApi = orderResource({ orderNumber: 'SGO-0001001', statusHistory: [{ status: 'cancelled', paymentStatus: 'pending', trackingNumber: '', changedBy: 'Warehouse ERP', actorType: 'api_application', actorId: 'app_3f9a1c2b4d5e6f70', requestId: 'req_5f1c2d3e4a5b6c7d8e9f0a1b', at }] });
+    assert.deepEqual(viaApi.history[0], { status: 'cancelled', payment_status: 'pending', tracking_number: '', actor: 'Warehouse ERP', actor_type: 'api_application', actor_id: 'app_3f9a1c2b4d5e6f70', request_id: 'req_5f1c2d3e4a5b6c7d8e9f0a1b', at: '2026-10-07T02:00:00.000Z' });
 
     const text = JSON.stringify(order);
     for (const hidden of ['do-not-expose', 'BANK-1', '"_id"', 'internal', 'idempotency']) {

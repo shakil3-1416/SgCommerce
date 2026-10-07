@@ -198,6 +198,29 @@ export class OrderStatusChange {
   })
   changedBy!: string;
 
+  /*
+   * Set when the change was made through the Developer API rather than
+   * by a person: 'api_application', the application's id, and the id of
+   * the API request, so the change can be traced in the request log.
+   */
+  @Prop({
+    type: String,
+    default: '',
+  })
+  actorType!: string;
+
+  @Prop({
+    type: String,
+    default: '',
+  })
+  actorId!: string;
+
+  @Prop({
+    type: String,
+    default: '',
+  })
+  requestId!: string;
+
   @Prop({
     type: Date,
     required: true,

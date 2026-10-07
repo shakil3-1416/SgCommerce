@@ -4,7 +4,13 @@ import { Reflector } from '@nestjs/core';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { ApiError } from './api-error';
 import { ApiApplicationsService } from './api-applications.service';
-import { newRequestId, RATE_WINDOW_SECONDS, READ_RATE_LIMIT, readBearer } from './developer-api';
+import {
+  newRequestId,
+  RATE_WINDOW_SECONDS,
+  READ_RATE_LIMIT,
+  readBearer,
+  WRITE_RATE_LIMIT,
+} from './developer-api';
 
 export const REQUIRED_SCOPE = 'sgcommerce_developer_scope';
 
@@ -63,16 +69,26 @@ export class ApiKeyGuard implements CanActivate {
       });
     }
 
-    await this.count(application.appId, response);
+    await this.count(application.appId, response, String(request.method ?? 'GET').toUpperCase() !== 'GET');
 
     return true;
   }
 
-  private async count(appId: string, response: any): Promise<void> {
+  /*
+   * Reads and writes have separate allowances, so a busy report cannot
+   * use up the room an order update needs, and the reverse.
+   */
+  private async count(appId: string, response: any, write: boolean): Promise<void> {
+    const allowance = write ? WRITE_RATE_LIMIT : READ_RATE_LIMIT;
     let limit: { allowed: boolean; remaining: number; retryAfter: number };
 
     try {
-      limit = await this.redis.rateLimit('developer-api', appId, READ_RATE_LIMIT, RATE_WINDOW_SECONDS);
+      limit = await this.redis.rateLimit(
+        write ? 'developer-api-write' : 'developer-api',
+        appId,
+        allowance,
+        RATE_WINDOW_SECONDS,
+      );
     } catch {
       /*
        * The limiter is unavailable. The request is allowed, as the
@@ -81,7 +97,7 @@ export class ApiKeyGuard implements CanActivate {
       return;
     }
 
-    response.setHeader('RateLimit-Limit', String(READ_RATE_LIMIT));
+    response.setHeader('RateLimit-Limit', String(allowance));
     response.setHeader('RateLimit-Remaining', String(limit.remaining));
     response.setHeader('RateLimit-Reset', String(limit.retryAfter));
 
@@ -91,7 +107,7 @@ export class ApiKeyGuard implements CanActivate {
       throw new ApiError(
         429,
         'rate_limit_exceeded',
-        `This application may make ${READ_RATE_LIMIT} requests per minute. Try again in ${limit.retryAfter} seconds.`,
+        `This application may make ${allowance} ${write ? 'write' : 'read'} requests per minute. Try again in ${limit.retryAfter} seconds.`,
       );
     }
   }

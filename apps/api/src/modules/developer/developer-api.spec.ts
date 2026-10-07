@@ -17,6 +17,7 @@ import {
   generateApiKey,
   grantableScopes,
   hashApiKey,
+  idempotencyKeyProblem,
   keyEnvironment,
   keyHint,
   looksLikeApiKey,
@@ -27,6 +28,7 @@ import {
   prefixedId,
   readBearer,
   refusedScopes,
+  requestFingerprint,
   SCOPES,
 } from './developer-api';
 
@@ -120,9 +122,9 @@ describe('scopes', () => {
   });
 
   it('can only be granted once an endpoint uses them', () => {
-    assert.deepEqual(grantableScopes(), ['products:read', 'inventory:read', 'customers:read', 'orders:read', 'payments:read', 'returns:read', 'refunds:read']);
-    assert.deepEqual(refusedScopes(['orders:read', 'payments:read']), []);
-    assert.deepEqual(refusedScopes(['orders:read', 'orders:write', 'admin', 7]), ['orders:write', 'admin', '7']);
+    assert.deepEqual(grantableScopes(), ['products:read', 'inventory:read', 'inventory:write', 'customers:read', 'orders:read', 'orders:write', 'payments:read', 'returns:read', 'returns:write', 'refunds:read']);
+    assert.deepEqual(refusedScopes(['orders:read', 'orders:write', 'payments:read']), []);
+    assert.deepEqual(refusedScopes(['orders:read', 'products:write', 'refunds:write', 'webhooks:manage', 'admin', 7]), ['products:write', 'refunds:write', 'webhooks:manage', 'admin', '7']);
   });
 });
 
@@ -191,6 +193,33 @@ describe('usage days and logged paths', () => {
 
   it('marks which scopes can change data', () => {
     assert.deepEqual(SCOPES.filter((item) => item.access === 'write').map((item) => item.scope), ['products:write', 'inventory:write', 'customers:write', 'orders:write', 'returns:write', 'refunds:write', 'webhooks:manage']);
-    assert.ok(SCOPES.filter((item) => item.available).every((item) => item.access === 'read'), 'everything grantable today only reads');
+    assert.deepEqual(SCOPES.filter((item) => item.available && item.access === 'write').map((item) => item.scope), ['inventory:write', 'orders:write', 'returns:write'], 'the writes that have endpoints today');
+  });
+});
+
+describe('idempotency keys', () => {
+  it('must be present and 8 to 255 printable characters without spaces', () => {
+    assert.equal(idempotencyKeyProblem(undefined), 'missing');
+    assert.equal(idempotencyKeyProblem(''), 'missing');
+    assert.equal(idempotencyKeyProblem('4f8f6a0e-0d0c-4b56-9d3e-7b1f0c9a2e11'), '');
+    assert.equal(idempotencyKeyProblem('order-SGO-0001001-cancel'), '');
+    assert.equal(idempotencyKeyProblem('short'), 'invalid');
+    assert.equal(idempotencyKeyProblem('has a space in it'), 'invalid');
+    assert.equal(idempotencyKeyProblem('x'.repeat(256)), 'invalid');
+    assert.equal(idempotencyKeyProblem('x'.repeat(255)), '');
+    assert.equal(idempotencyKeyProblem(['a-list-of-keys']), 'invalid');
+    assert.equal(idempotencyKeyProblem('ক্যানসেল-অর্ডার'), 'invalid');
+  });
+
+  it('a request is the same request whatever the order of its fields, and a different one otherwise', () => {
+    const base = requestFingerprint('POST', '/api/v1/developer/returns', { order_id: 'SGO-0001001', items: [{ sku: 'A', quantity: 1 }], reason: 'wrong_size' });
+
+    assert.equal(base.length, 64);
+    assert.equal(requestFingerprint('post', '/api/v1/developer/returns', { reason: 'wrong_size', items: [{ quantity: 1, sku: 'A' }], order_id: 'SGO-0001001' }), base);
+    assert.notEqual(requestFingerprint('POST', '/api/v1/developer/returns', { order_id: 'SGO-0001001', items: [{ sku: 'A', quantity: 2 }], reason: 'wrong_size' }), base);
+    assert.notEqual(requestFingerprint('POST', '/api/v1/developer/orders/SGO-0001001/cancel', { order_id: 'SGO-0001001', items: [{ sku: 'A', quantity: 1 }], reason: 'wrong_size' }), base);
+    // the order of a list does matter: it is part of what was asked
+    assert.notEqual(requestFingerprint('POST', '/x', { items: ['a', 'b'] }), requestFingerprint('POST', '/x', { items: ['b', 'a'] }));
+    assert.equal(requestFingerprint('POST', '/x', undefined), requestFingerprint('POST', '/x', null));
   });
 });

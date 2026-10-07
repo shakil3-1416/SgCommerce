@@ -880,6 +880,15 @@ export class OrdersService {
     orderNumber: string,
     dto: UpdateOrderStatusDto,
     changedBy = 'admin',
+    /*
+     * Given when the change comes through the Developer API, so the
+     * history shows which application made it and in which request.
+     */
+    origin?: {
+      actorType: string;
+      actorId: string;
+      requestId: string;
+    },
   ) {
     const normalizedOrderNumber =
       orderNumber
@@ -889,6 +898,14 @@ export class OrdersService {
     /* The history requires a name; an empty one falls back to 'admin'. */
     const actor =
       changedBy.trim() || 'admin';
+
+    const originFields = origin
+      ? {
+          actorType: origin.actorType,
+          actorId: origin.actorId,
+          requestId: origin.requestId,
+        }
+      : {};
 
     const current =
       await this.orderModel
@@ -1033,6 +1050,7 @@ export class OrdersService {
                           trackingNumber:
                             nextTrackingNumber,
                           changedBy: actor,
+                          ...originFields,
                           at: new Date(),
                         },
                       },
@@ -1168,6 +1186,7 @@ export class OrdersService {
                   '',
 
                 changedBy: actor,
+                ...originFields,
                 at: new Date(),
               },
             },

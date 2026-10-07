@@ -20,6 +20,8 @@ import {
   scopeChanges,
   snippets,
   statusTone,
+  writeScopesIn,
+  writeWarning,
 } from './developer-applications';
 
 const when = (value: unknown) => (value ? '7 Oct 2026, 02:00' : '');
@@ -128,5 +130,28 @@ describe('lastUsedLabel', () => {
     assert.equal(lastUsedLabel({ ...application, lastUsedAt: '2026-10-06T20:00:00Z' }, when), 'Last used 7 Oct 2026, 02:00');
     assert.equal(lastUsedLabel({ ...application, status: 'revoked', revokedAt: '2026-10-06T20:00:00Z' }, when), 'Revoked 7 Oct 2026, 02:00');
     assert.equal(lastUsedLabel({ ...application, status: 'revoked' }, when), 'Revoked');
+  });
+});
+
+describe('granting permissions that can change data', () => {
+  const catalogue = [
+    { scope: 'orders:read', group: 'Orders', access: 'read' as const, allows: 'Read orders', available: true },
+    { scope: 'orders:write', group: 'Orders', access: 'write' as const, allows: 'Cancel orders and change their status', available: true },
+    { scope: 'inventory:write', group: 'Inventory', access: 'write' as const, allows: 'Change stock', available: true },
+  ];
+
+  it('picks out the write permissions among those chosen', () => {
+    assert.deepEqual(writeScopesIn(['orders:read', 'orders:write'], catalogue).map((s) => s.scope), ['orders:write']);
+    assert.deepEqual(writeScopesIn(['orders:read'], catalogue), []);
+    assert.deepEqual(writeScopesIn([], catalogue), []);
+  });
+
+  it('asks before granting them, naming the application and each permission; asks nothing for read-only', () => {
+    assert.equal(writeWarning('Warehouse ERP', []), '');
+    const warning = writeWarning('Warehouse ERP', writeScopesIn(['orders:write', 'inventory:write', 'orders:read'], catalogue));
+    assert.match(warning, /^"Warehouse ERP" will be able to change your shop's data:/);
+    assert.match(warning, /- orders:write: Cancel orders and change their status\n- inventory:write: Change stock/);
+    assert.match(warning, /Anyone who has its key can do this\. Continue\?$/);
+    assert.ok(!warning.includes('orders:read'));
   });
 });

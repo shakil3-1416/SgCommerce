@@ -157,6 +157,26 @@ export function graceChoiceLabel(hours: number): string {
     : `Keep the old key working for ${hours} hours`;
 }
 
+/** The chosen permissions that can change the shop's data, with what each allows. */
+export function writeScopesIn(chosen: readonly string[], scopes: readonly ScopeOption[]): ScopeOption[] {
+  return scopes.filter((scope) => scope.access === 'write' && chosen.includes(scope.scope));
+}
+
+/**
+ * What to ask before an application is given permissions that can
+ * change data, or '' when it is given none. Reading is harmless to
+ * grant by mistake; writing is not, so it gets a second look.
+ */
+export function writeWarning(name: string, granted: readonly ScopeOption[]): string {
+  if (granted.length === 0) {
+    return '';
+  }
+
+  const list = granted.map((scope) => `- ${scope.scope}: ${scope.allows}`).join('\n');
+
+  return `"${name}" will be able to change your shop's data:\n\n${list}\n\nAnyone who has its key can do this. Continue?`;
+}
+
 /** What a change of permissions adds and takes away, to confirm before saving. */
 export function scopeChanges(before: readonly string[], after: readonly string[]): { added: string[]; removed: string[] } {
   return {

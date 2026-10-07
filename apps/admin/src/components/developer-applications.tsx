@@ -30,6 +30,8 @@ import {
   reasonFrom,
   type ScopeOption,
   when,
+  writeScopesIn,
+  writeWarning,
 } from '@/lib/developer-applications';
 
 /**
@@ -119,6 +121,15 @@ export function DeveloperApplications({
 
     if (invalid) {
       setProblem(invalid);
+      return;
+    }
+
+    const warning = writeWarning(
+      name.trim(),
+      writeScopesIn(chosen, scopes),
+    );
+
+    if (warning && !window.confirm(warning)) {
       return;
     }
 

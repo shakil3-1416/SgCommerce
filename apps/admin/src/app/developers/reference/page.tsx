@@ -21,6 +21,7 @@ interface Endpoint {
   summary: string;
   filters: string[];
   paged: boolean;
+  body?: string[];
 }
 
 const card =
@@ -157,11 +158,32 @@ export default async function DeveloperReferencePage() {
               Rate limit
             </dt>
             <dd className="mt-1 text-[#4f455c]">
-              {reference.rateLimit.requests} requests per{' '}
+              {reference.rateLimit.requests} reads and{' '}
+              {reference.rateLimit.writes} writes per{' '}
               {reference.rateLimit.perSeconds} seconds for each
-              application. See the RateLimit-Limit,
-              RateLimit-Remaining and RateLimit-Reset headers; a 429
-              carries Retry-After.
+              application, counted separately. See the
+              RateLimit-Limit, RateLimit-Remaining and
+              RateLimit-Reset headers; a 429 carries Retry-After.
+            </dd>
+          </div>
+
+          <div>
+            <dt className="font-semibold text-[#1f1235]">
+              Writes
+            </dt>
+            <dd className="mt-1 text-[#4f455c]">
+              Every POST needs an{' '}
+              <code className="font-mono">
+                {reference.idempotency.header}
+              </code>{' '}
+              header: a value you generate, such as a UUID. Sending
+              the same request again with the same key returns the
+              first answer and does nothing twice. Keys are
+              remembered for {reference.idempotency.rememberedForHours}{' '}
+              hours. Send{' '}
+              <code className="font-mono">expected_status</code> to
+              change a record only if it is still in the status you
+              last saw.
             </dd>
           </div>
 
@@ -199,11 +221,17 @@ export default async function DeveloperReferencePage() {
                   .filter((endpoint) => endpoint.group === group)
                   .map((endpoint) => (
                     <li
-                      key={endpoint.path}
+                      key={`${endpoint.method} ${endpoint.path}`}
                       className="grid gap-2 px-4 py-3 text-sm lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_auto] lg:items-start"
                     >
                       <span className="break-all font-mono text-[#1f1235]">
-                        <span className="mr-2 rounded bg-[#f2edf8] px-1.5 py-0.5 text-xs font-bold text-[#38205f]">
+                        <span
+                          className={`mr-2 rounded px-1.5 py-0.5 text-xs font-bold ${
+                            endpoint.method === 'GET'
+                              ? 'bg-[#f2edf8] text-[#38205f]'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}
+                        >
                           {endpoint.method}
                         </span>{' '}
                         {endpoint.path || '/'}
@@ -221,6 +249,12 @@ export default async function DeveloperReferencePage() {
                         {endpoint.paged && (
                           <span className="mt-1 block text-xs text-[#6f6679]">
                             Paged: limit, cursor
+                          </span>
+                        )}
+
+                        {(endpoint.body ?? []).length > 0 && (
+                          <span className="mt-1 block font-mono text-xs text-[#6f6679]">
+                            Body: {(endpoint.body ?? []).join(', ')}
                           </span>
                         )}
                       </span>

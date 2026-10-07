@@ -5,8 +5,9 @@ an ERP, a courier service, an accounting tool, a CRM. It exposes stable
 business resources (products, inventory, customers, orders, payments,
 returns, refunds) and nothing that belongs to one particular screen.
 
-**Version 1, stage 1: read access.** Everything below works today. What
-is planned next is listed under [Roadmap](#roadmap).
+**Version 1: read access, and writing for orders, returns and stock.**
+Everything below works today. What is planned next is listed under
+[Roadmap](#roadmap).
 
 - Base address: `https://<api-host>/api/v1/developer`
 - Format: JSON, UTF-8. Field names are `snake_case`. Times are ISO 8601 in UTC.
@@ -100,13 +101,16 @@ A key can call an endpoint only if it holds the endpoint's scope.
 | `payments:read` | The state of payments | Available |
 | `returns:read` | Returns | Available |
 | `refunds:read` | The state of refunds | Available |
+| `inventory:write` | Change stock | Available |
+| `orders:write` | Cancel orders, change status and tracking | Available |
+| `returns:write` | Create and manage returns | Available |
 | `products:write` | Create and update products | Planned |
-| `inventory:write` | Change stock | Planned |
 | `customers:write` | Update customer profiles | Planned |
-| `orders:write` | Cancel orders, change status | Planned |
-| `returns:write` | Create and manage returns | Planned |
 | `refunds:write` | Refund operations | Planned |
 | `webhooks:manage` | Configure webhook subscriptions | Planned |
+
+A write scope lets whoever holds the key change the shop's data. Grant
+one only to a system that needs it; the admin asks for confirmation.
 
 A planned scope cannot be granted yet. When it becomes available it has
 to be granted on purpose: no existing key gains a new power by itself.
@@ -163,6 +167,53 @@ Every collection is paged the same way.
 Records come newest first. Keep requesting with `next_cursor` until
 `has_more` is `false`. A cursor is opaque; do not build or change one.
 
+## Writing
+
+Every write is a `POST` with a JSON body and two rules.
+
+### 1. Send an Idempotency-Key
+
+```
+POST /api/v1/developer/orders/SGO-0001001/cancel
+Authorization: Bearer sg_live_...
+Idempotency-Key: 4f8f6a0e-0d0c-4b56-9d3e-7b1f0c9a2e11
+Content-Type: application/json
+
+{ "expected_status": "confirmed" }
+```
+
+The key is a value you generate, such as a UUID: 8 to 255 printable
+characters. It makes the request safe to repeat.
+
+- The first request with a key does the work. Its answer is remembered
+  for 24 hours.
+- The same request again with the same key gets that answer back, with
+  the header `Idempotent-Replayed: true`. Nothing is done twice. So when
+  a request times out, send it again with the same key.
+- A refusal (for example `order_not_cancellable`) is remembered the same
+  way. A failure on our side (5xx) or `resource_busy` is not, so the same
+  key can be retried.
+- The same key with a different request is refused with
+  `idempotency_conflict`. Use a new key for each new thing you ask for.
+- Without the header the answer is `400 idempotency_key_required`.
+
+### 2. Say what you expect, when it matters
+
+`expected_status` is optional. With it, the change is made only if the
+record is still in that status; otherwise the answer is
+`409 state_conflict` with the current status in `details`. Use it when
+you decided on the basis of something you read earlier.
+
+### What a write is allowed to do
+
+A write goes through the same rules as the admin: which status may
+follow which, what can be returned, when stock goes back. The API never
+lets a caller choose a price, a refund amount or an eligibility.
+
+Each change to an order is written to its history with the
+application's name, `actor_type: "api_application"`, the application's
+id and the request id.
+
 ## Errors
 
 ```json
@@ -182,6 +233,8 @@ Read `code` in a program. `message` is for a person and may be reworded.
 | --- | --- | --- |
 | 400 | `invalid_cursor` | The cursor was not issued by this API |
 | 400 | `invalid_request` | The request could not be understood |
+| 400 | `idempotency_key_required` | A write was sent without an `Idempotency-Key` |
+| 400 | `invalid_idempotency_key` | The key is not 8 to 255 printable characters |
 | 401 | `authentication_required` | No key was sent |
 | 401 | `invalid_credential` | The key is not valid |
 | 401 | `credential_revoked` | The application was revoked |
@@ -190,6 +243,16 @@ Read `code` in a program. `message` is for a person and may be reworded.
 | 401 | `credential_environment_mismatch` | A test key on the live API, or the reverse |
 | 403 | `insufficient_scope` | The key lacks the scope in `details.required_scope` |
 | 404 | `product_not_found`, `category_not_found`, `inventory_not_found`, `customer_not_found`, `order_not_found`, `payment_not_found`, `return_not_found`, `refund_not_found` | No such record |
+| 409 | `idempotency_conflict` | The key was already used for a different request |
+| 409 | `idempotency_in_progress` | The first request with this key is still being handled |
+| 409 | `state_conflict` | The record is not in the `expected_status`; `details` has the current one |
+| 409 | `invalid_transition` | That status cannot follow the current one |
+| 409 | `order_not_cancellable` | The order has shipped or been delivered |
+| 409 | `payment_required` | An order to be paid online is unpaid and cannot move forward |
+| 409 / 422 | `return_not_eligible` | The order is not delivered yet (409), or an item is not part of it (422) |
+| 409 | `return_quantity_exceeded` | More units than remain eligible for return |
+| 409 | `insufficient_inventory` | Not enough available stock for the adjustment |
+| 409 | `resource_busy` | The record is being changed by someone else; retry shortly |
 | 422 | `validation_failed` | A parameter is not valid; `details` lists what |
 | 429 | `rate_limit_exceeded` | Too many requests; see `Retry-After` |
 | 500 | `internal_error` | A fault on our side; report the `request_id` |
@@ -198,8 +261,8 @@ A real error is never returned with status 200.
 
 ## Rate limits
 
-Each application may make **240 requests per minute**. Every response
-says where it stands:
+Each application may make **240 reads and 60 writes per minute**,
+counted separately. Every response says where it stands:
 
 ```
 RateLimit-Limit: 240
@@ -280,6 +343,21 @@ version.
 `available` is what can still be sold. A movement's `reference` is the
 order number for stock taken or returned by an order.
 
+**Writing &middot; `inventory:write`**
+
+| | |
+| --- | --- |
+| `POST /developer/inventory/{sku}/adjustments` | Add to or take from stock |
+
+```json
+{ "delta": 12, "reason": "supplier delivery", "reference": "GRN-2026-0412" }
+```
+
+`delta` is a whole number, positive to add and negative to take away,
+never zero. `reason` is kept in the stock history. `reference` is
+optional. The answer is the SKU's new stock level. Stock cannot be taken
+below what is reserved: `409 insufficient_inventory`.
+
 ### Customers &middot; `customers:read`
 
 | | |
@@ -313,8 +391,9 @@ order number for stock taken or returned by an order.
     { "product_id": "SGP-000217", "sku": "SGP-000217-01", "product_name": "Classic Cotton T-Shirt", "variant_title": "Black / M", "unit_price": 950, "quantity": 1, "line_total": 950 }
   ],
   "history": [
-    { "status": "pending", "payment_status": "pending", "tracking_number": "", "actor": "guest", "at": "2026-10-06T14:18:00.000Z" },
-    { "status": "pending", "payment_status": "paid", "tracking_number": "", "actor": "sslcommerz", "at": "2026-10-06T14:20:00.000Z" }
+    { "status": "pending", "payment_status": "pending", "tracking_number": "", "actor": "guest", "actor_type": null, "actor_id": null, "request_id": null, "at": "2026-10-06T14:18:00.000Z" },
+    { "status": "pending", "payment_status": "paid", "tracking_number": "", "actor": "sslcommerz", "actor_type": null, "actor_id": null, "request_id": null, "at": "2026-10-06T14:20:00.000Z" },
+    { "status": "shipped", "payment_status": "paid", "tracking_number": "PATHAO-778", "actor": "Warehouse ERP", "actor_type": "api_application", "actor_id": "app_3f9a1c2b4d5e6f70", "request_id": "req_5f1c2d3e4a5b6c7d8e9f0a1b", "at": "2026-10-06T15:02:00.000Z" }
   ],
   "created_at": "2026-10-06T14:18:00.000Z",
   "updated_at": "2026-10-06T14:20:00.000Z"
@@ -325,6 +404,36 @@ order number for stock taken or returned by an order.
 - `payment_method`: `cod` (cash on delivery) or `sslcommerz` (paid online).
 - `payment_status`: `pending`, `paid`, `failed`, `refunded`, `cancelled`.
 - A line's name and price are what they were when the order was placed.
+- A history entry made through this API also has `actor_type`
+  (`api_application`), `actor_id` (the application) and `request_id`.
+  For other entries those three are `null`.
+
+**Writing &middot; `orders:write`**
+
+| | |
+| --- | --- |
+| `POST /developer/orders/{orderNumber}/cancel` | Cancel an order and return its stock. Body: `expected_status` (optional) |
+| `POST /developer/orders/{orderNumber}/status` | Move an order forward. Body: `status`, `tracking_number` (optional), `expected_status` (optional) |
+
+```json
+{ "status": "shipped", "tracking_number": "PATHAO-778", "expected_status": "processing" }
+```
+
+- An order moves `pending` &rarr; `confirmed` &rarr; `processing` &rarr;
+  `shipped` &rarr; `delivered`. Any other step is `409 invalid_transition`.
+- Sending the status an order already has, with a `tracking_number`,
+  updates the tracking number.
+- Only an order that has not shipped can be cancelled; otherwise
+  `409 order_not_cancellable`. Cancelling a cancelled order succeeds and
+  changes nothing.
+- An order to be paid online cannot be moved forward until it is paid
+  (`409 payment_required`). It can be cancelled.
+- **Cancelling does not refund.** An order that was paid online stays
+  `payment_status: "paid"` after it is cancelled; the merchant refunds it
+  at the payment gateway.
+- A cash-on-delivery order becomes `paid` when it is marked `delivered`.
+
+Both answer with the order as it is after the change.
 
 ### Payments &middot; `payments:read`
 
@@ -354,6 +463,32 @@ Gateway session keys, validation ids and card numbers are not exposed.
 `status`: `requested`, `approved`, `rejected`, `received`, `completed`.
 Refund amounts are computed by the server from the order.
 
+**Writing &middot; `returns:write`**
+
+| | |
+| --- | --- |
+| `POST /developer/returns` | Open a return for a delivered order. Answers `201` with the return |
+| `POST /developer/returns/{returnNumber}/status` | Move a return on. Body: `status`, `expected_status` (optional) |
+
+```json
+{
+  "order_id": "SGO-0001021",
+  "items": [ { "sku": "SGP-000044-02", "quantity": 1 } ],
+  "reason": "wrong_size",
+  "details": "Customer asked for size L"
+}
+```
+
+- The order must be `delivered` (`409 return_not_eligible`), each SKU
+  must be on the order (`422 return_not_eligible`), and no more units
+  than remain un-returned may be asked for
+  (`409 return_quantity_exceeded`).
+- The caller says which SKUs and how many. The server sets the unit
+  price and the refund amount from the order.
+- A return moves `requested` &rarr; `approved` or `rejected`; `approved`
+  &rarr; `received` &rarr; `completed`. Any other step is
+  `409 invalid_transition`.
+
 ### Refunds &middot; `refunds:read`
 
 | | |
@@ -380,15 +515,12 @@ recorded it as paid out; it is not a confirmation from a bank.
 
 Planned, in this order. None of it is available yet.
 
-1. **Writing.** Cancelling and updating orders, creating returns,
-   adjusting stock, with an `Idempotency-Key` on every write so a retry
-   never does something twice, and each change recorded in the order's
-   history under the application's name.
-2. **Webhooks.** Subscriptions to events such as `order.created`,
+1. **Webhooks.** Subscriptions to events such as `order.created`,
    `order.updated`, `payment.paid`, `return.created`, each signed, with
    retries, a delivery log and replay.
+2. **More writing.** Products, customer profiles and refunds.
 3. **Fulfilment** as its own resource (carrier, tracking, several
-   shipments per order), and product and customer writes.
+   shipments per order).
 
 ## Changelog
 
@@ -396,3 +528,4 @@ Planned, in this order. None of it is available yet.
 | --- | --- |
 | 2026-10-07 | Stage 1: applications, credentials and scopes; read access to products, categories, inventory, customers, orders, payments, returns and refunds |
 | 2026-10-07 | Key end dates, key replacement with a grace period, editable permissions, change history, request log and usage counts. New error codes `credential_expired` and `credential_replaced` |
+| 2026-10-07 | Writing: cancel and move orders, open and move returns, adjust stock. `Idempotency-Key` on every write, `expected_status`, a separate write rate limit, and `actor_type`, `actor_id`, `request_id` on order history entries |

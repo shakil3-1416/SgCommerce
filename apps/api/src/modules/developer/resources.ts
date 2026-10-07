@@ -148,8 +148,12 @@ export function orderHistoryResource(entry: Doc) {
     status: text(entry.status),
     payment_status: text(entry.paymentStatus),
     tracking_number: text(entry.trackingNumber),
-    // 'guest' or 'customer' at checkout, the payment gateway, or the admin who made the change.
+    // 'guest' or 'customer' at checkout, the payment gateway, the admin who made the change, or an application's name.
     actor: text(entry.changedBy),
+    // 'api_application' when the change came through this API; then actor_id is the application and request_id the request.
+    actor_type: text(entry.actorType) || null,
+    actor_id: text(entry.actorId) || null,
+    request_id: text(entry.requestId) || null,
     at: time(entry.at),
   };
 }

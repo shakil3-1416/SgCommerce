@@ -37,6 +37,7 @@ import {
   statusTone,
   type UsageSummary,
   when,
+  writeScopesIn,
 } from '@/lib/developer-applications';
 
 const card =
@@ -202,9 +203,19 @@ export function DeveloperApplicationDetail({
       .filter(Boolean)
       .join('\n');
 
+    const newWrites = writeScopesIn(
+      changes.added,
+      scopes,
+    );
+
+    const caution =
+      newWrites.length > 0
+        ? `\n\nThis lets it change your shop's data (${newWrites.map((scope) => scope.scope).join(', ')}). Anyone who has its key can do this.`
+        : '';
+
     if (
       !window.confirm(
-        `Change what "${application.name}" may do?\n\n${summary}\n\nThis takes effect on its next request.`,
+        `Change what "${application.name}" may do?\n\n${summary}${caution}\n\nThis takes effect on its next request.`,
       )
     ) {
       return;

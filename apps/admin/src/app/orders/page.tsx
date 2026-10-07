@@ -53,7 +53,12 @@ const zoneLabels: Record<string, string> = {
 };
 
 /* Who made a change, as stored in the order's status history. */
-function who(changedBy: unknown): string {
+function who(changedBy: unknown, actorType?: unknown): string {
+  /* A change made through the Developer API carries the application's name. */
+  if (actorType === 'api_application') {
+    return `${String(changedBy)} (API application)`;
+  }
+
   if (changedBy === 'guest') {
     return 'Customer (guest checkout)';
   }
@@ -403,7 +408,7 @@ export default async function OrdersPage() {
                                       )}
 
                                       <span className="text-[#6f6679]">
-                                        {who(entry.changedBy)}
+                                        {who(entry.changedBy, entry.actorType)}
                                         {' · '}
                                         {when(entry.at)}
                                       </span>
