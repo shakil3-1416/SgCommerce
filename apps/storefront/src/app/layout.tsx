@@ -2,6 +2,8 @@ import type {
   Metadata,
 } from 'next';
 
+import Script from 'next/script';
+
 import './globals.css';
 
 import {
@@ -29,8 +31,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children:
-    React.ReactNode;
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
@@ -40,8 +41,17 @@ export default function RootLayout({
 
           {children}
         </CartProvider>
-              <SiteFooter />
-</body>
+
+        <SiteFooter />
+
+        <Script
+          id="supgent-webchat"
+          src="https://futures-expressed-peas-boring.trycloudflare.com/supgent-widget.js"
+          data-channel="wc__iGus1YrbiKJZCNmr6_PFFjlTZ2ogHCR"
+          data-api-base="https://attempting-observer-keeps-screenshot.trycloudflare.com"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }
