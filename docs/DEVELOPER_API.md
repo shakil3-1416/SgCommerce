@@ -5,7 +5,7 @@ an ERP, a courier service, an accounting tool, a CRM. It exposes stable
 business resources (products, inventory, customers, orders, payments,
 returns, refunds) and nothing that belongs to one particular screen.
 
-**Version 1: read access, and writing for orders, returns and stock.**
+**Version 1: read and write access to every commerce resource.**
 Everything below works today. What is planned next is listed under
 [Roadmap](#roadmap).
 
@@ -101,12 +101,12 @@ A key can call an endpoint only if it holds the endpoint's scope.
 | `payments:read` | The state of payments | Available |
 | `returns:read` | Returns | Available |
 | `refunds:read` | The state of refunds | Available |
+| `products:write` | Create and update products, variants and prices | Available |
 | `inventory:write` | Change stock | Available |
+| `customers:write` | Update customer names, emails and saved addresses | Available |
 | `orders:write` | Cancel orders, change status and tracking | Available |
 | `returns:write` | Create and manage returns | Available |
-| `products:write` | Create and update products | Planned |
-| `customers:write` | Update customer profiles | Planned |
-| `refunds:write` | Refund operations | Planned |
+| `refunds:write` | Record the outcome of a refund (does not move money) | Available |
 | `webhooks:manage` | Configure webhook subscriptions | Planned |
 
 A write scope lets whoever holds the key change the shop's data. Grant
@@ -169,7 +169,9 @@ Records come newest first. Keep requesting with `next_cursor` until
 
 ## Writing
 
-Every write is a `POST` with a JSON body and two rules.
+A write is a `POST` (create something, or carry out an action), a
+`PATCH` (change fields of something that exists) or a `DELETE`. All of
+them follow two rules.
 
 ### 1. Send an Idempotency-Key
 
@@ -212,7 +214,8 @@ lets a caller choose a price, a refund amount or an eligibility.
 
 Each change to an order is written to its history with the
 application's name, `actor_type: "api_application"`, the application's
-id and the request id.
+id and the request id. Every write of any kind is in the request log
+with the application, the path and the outcome.
 
 ## Errors
 
@@ -242,7 +245,7 @@ Read `code` in a program. `message` is for a person and may be reworded.
 | 401 | `credential_replaced` | The key was replaced and its grace period is over |
 | 401 | `credential_environment_mismatch` | A test key on the live API, or the reverse |
 | 403 | `insufficient_scope` | The key lacks the scope in `details.required_scope` |
-| 404 | `product_not_found`, `category_not_found`, `inventory_not_found`, `customer_not_found`, `order_not_found`, `payment_not_found`, `return_not_found`, `refund_not_found` | No such record |
+| 404 | `product_not_found`, `variant_not_found`, `category_not_found`, `inventory_not_found`, `customer_not_found`, `address_not_found`, `order_not_found`, `payment_not_found`, `return_not_found`, `refund_not_found` | No such record |
 | 409 | `idempotency_conflict` | The key was already used for a different request |
 | 409 | `idempotency_in_progress` | The first request with this key is still being handled |
 | 409 | `state_conflict` | The record is not in the `expected_status`; `details` has the current one |
@@ -252,7 +255,9 @@ Read `code` in a program. `message` is for a person and may be reworded.
 | 409 / 422 | `return_not_eligible` | The order is not delivered yet (409), or an item is not part of it (422) |
 | 409 | `return_quantity_exceeded` | More units than remain eligible for return |
 | 409 | `insufficient_inventory` | Not enough available stock for the adjustment |
+| 409 | `sku_conflict` | A SKU in the request is already used by another product |
 | 409 | `resource_busy` | The record is being changed by someone else; retry shortly |
+| 422 | `category_not_found` | The category named in the body does not exist |
 | 422 | `validation_failed` | A parameter is not valid; `details` lists what |
 | 429 | `rate_limit_exceeded` | Too many requests; see `Retry-After` |
 | 500 | `internal_error` | A fault on our side; report the `request_id` |
@@ -326,6 +331,46 @@ version.
 }
 ```
 
+**Writing &middot; `products:write`**
+
+| | |
+| --- | --- |
+| `POST /developer/products` | Create a product. Answers `201` with the product |
+| `PATCH /developer/products/{productId}` | Change `name`, `description`, `brand`, `category`, `images`, `active` |
+| `POST /developer/products/{productId}/variants` | Add a variant. Answers `201` with the product |
+| `PATCH /developer/products/{productId}/variants/{sku}` | Change one variant: `title`, `price`, `compare_at_price`, `attributes`, `active` |
+
+```json
+{
+  "name": "Linen Shirt",
+  "category": "mens-shirts",
+  "brand": "SgBasics",
+  "description": "Breathable linen.",
+  "images": ["https://example.com/linen-front.png"],
+  "variants": [
+    { "title": "White / M", "price": 1450, "compare_at_price": 1700, "opening_stock": 12 },
+    { "title": "White / L", "price": 1450, "sku": "LS-WHT-L" }
+  ]
+}
+```
+
+- The server issues the product code (`SGP-…`). A variant without a `sku`
+  gets one from the product code (`SGP-000218-01`). A `sku` you send is
+  kept as sent and must not belong to another product
+  (`409 sku_conflict`).
+- `category` is a category id from `GET /categories`
+  (`422 category_not_found`).
+- `images` are `https` addresses, at most 12. The shop shows them from
+  where they are: host them somewhere that stays up.
+- Each new variant gets a stock record with `opening_stock` units, or 0.
+- Prices are whole taka. `compare_at_price` is the crossed-out price;
+  send `null` on a variant update to remove it.
+- A product's product code and web address never change, and a SKU never
+  changes. To stop selling a product or a variant set `active` to
+  `false`; nothing is deleted.
+- Changing a price affects new orders only. Orders already placed keep
+  the price they were placed at.
+
 ### Inventory &middot; `inventory:read`
 
 | | |
@@ -356,7 +401,9 @@ order number for stock taken or returned by an order.
 `delta` is a whole number, positive to add and negative to take away,
 never zero. `reason` is kept in the stock history. `reference` is
 optional. The answer is the SKU's new stock level. Stock cannot be taken
-below what is reserved: `409 insufficient_inventory`.
+below what is reserved: `409 insufficient_inventory`. A SKU that exists
+but never had a stock record gets one, starting at zero, on its first
+adjustment.
 
 ### Customers &middot; `customers:read`
 
@@ -365,6 +412,25 @@ below what is reserved: `409 insufficient_inventory`.
 | `GET /developer/customers` | List. Filters: `phone` (any spelling: `+880 1711-000001` and `01711000001` find the same customer), `email` |
 | `GET /developer/customers/{customerId}` | One customer with saved addresses |
 | `GET /developer/customers/{customerId}/orders` | That customer's orders. Needs `orders:read` |
+
+**Writing &middot; `customers:write`**
+
+| | |
+| --- | --- |
+| `PATCH /developer/customers/{customerId}` | Change `name` or `email` |
+| `POST /developer/customers/{customerId}/addresses` | Save an address. Answers `201` with the customer |
+| `DELETE /developer/customers/{customerId}/addresses/{addressId}` | Remove a saved address |
+
+```json
+{ "label": "Office", "address_line1": "Station Road", "district": "Pabna", "postal_code": "6600", "is_default": true }
+```
+
+- A customer is identified by their phone number, so the phone cannot be
+  changed through the API.
+- The delivery zone of an address follows from its `district`; it cannot
+  be set.
+- Removing a saved address does not touch orders already placed: each
+  order keeps its own copy of where it was sent.
 
 ### Orders &middot; `orders:read`
 
@@ -500,6 +566,25 @@ Refund amounts are computed by the server from the order.
 owed back and how far that has got. `completed` means the merchant
 recorded it as paid out; it is not a confirmation from a bank.
 
+**Writing &middot; `refunds:write`**
+
+| | |
+| --- | --- |
+| `POST /developer/refunds/{refundNumber}/status` | Record how a refund turned out. Body: `status`, `note` (optional), `expected_status` (optional) |
+
+```json
+{ "status": "completed", "note": "bKash TrxID 9XK2A7", "expected_status": "pending" }
+```
+
+- **This does not send money.** The refund itself is made at the payment
+  gateway or in cash. This keeps the shop's record in step with what
+  really happened, for example from an accounting system.
+- A `pending` refund can become `completed` or `failed`. A `failed` one
+  can become `pending` again or `completed`. A `completed` refund is
+  final (`409 invalid_transition`).
+- Refund records are created by the server when a return is processed;
+  the amount comes from the order and cannot be set.
+
 ## Versioning
 
 - The version is in the address: `/api/v1`.
@@ -517,9 +602,9 @@ Planned, in this order. None of it is available yet.
 
 1. **Webhooks.** Subscriptions to events such as `order.created`,
    `order.updated`, `payment.paid`, `return.created`, each signed, with
-   retries, a delivery log and replay.
-2. **More writing.** Products, customer profiles and refunds.
-3. **Fulfilment** as its own resource (carrier, tracking, several
+   retries, a delivery log and replay. The `webhooks:manage` scope is
+   reserved for this and cannot be granted yet.
+2. **Fulfilment** as its own resource (carrier, tracking, several
    shipments per order).
 
 ## Changelog
@@ -529,3 +614,4 @@ Planned, in this order. None of it is available yet.
 | 2026-10-07 | Stage 1: applications, credentials and scopes; read access to products, categories, inventory, customers, orders, payments, returns and refunds |
 | 2026-10-07 | Key end dates, key replacement with a grace period, editable permissions, change history, request log and usage counts. New error codes `credential_expired` and `credential_replaced` |
 | 2026-10-07 | Writing: cancel and move orders, open and move returns, adjust stock. `Idempotency-Key` on every write, `expected_status`, a separate write rate limit, and `actor_type`, `actor_id`, `request_id` on order history entries |
+| 2026-10-07 | Writing: create and update products and variants, update customers and their saved addresses, record refund outcomes. `PATCH` and `DELETE` join `POST`. New codes `variant_not_found`, `address_not_found`, `sku_conflict`, `category_not_found` (422) |

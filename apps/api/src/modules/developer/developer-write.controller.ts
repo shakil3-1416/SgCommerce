@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -17,11 +19,18 @@ import { idempotencyKeyProblem, loggedPath, requestFingerprint } from './develop
 import { DeveloperRequestLogInterceptor } from './developer-request-log.interceptor';
 import { DeveloperWriteService, WriteOrigin } from './developer-write.service';
 import {
+  AddAddressBodyDto,
   AdjustInventoryBodyDto,
   CancelOrderDto,
+  CreateProductBodyDto,
   CreateReturnBodyDto,
   SetOrderStatusDto,
+  SetRefundStatusDto,
   SetReturnStatusDto,
+  UpdateCustomerBodyDto,
+  UpdateProductBodyDto,
+  UpdateVariantBodyDto,
+  VariantBodyDto,
 } from './dto/developer-write.dto';
 import { IdempotencyService } from './idempotency.service';
 
@@ -31,6 +40,9 @@ import { IdempotencyService } from './idempotency.service';
  * Every route needs a write scope and an Idempotency-Key header. The
  * same request sent again with the same key gets the first answer back,
  * marked "Idempotent-Replayed: true", and nothing is done twice.
+ *
+ * POST creates something or carries out an action, PATCH changes fields
+ * of something that exists, DELETE removes it.
  */
 @Controller('developer')
 @UseGuards(ApiKeyGuard)
@@ -165,5 +177,102 @@ export class DeveloperWriteController {
     return this.once(request, response, body, 200, (key) =>
       this.write.adjustInventory(sku, body, this.origin(request), key),
     );
+  }
+
+  /* Products */
+
+  @RequireScope('products:write')
+  @Post('products')
+  createProduct(
+    @Body() body: CreateProductBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 201, () => this.write.createProduct(body));
+  }
+
+  @RequireScope('products:write')
+  @Patch('products/:productId')
+  updateProduct(
+    @Param('productId') productId: string,
+    @Body() body: UpdateProductBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 200, () => this.write.updateProduct(productId, body));
+  }
+
+  @RequireScope('products:write')
+  @Post('products/:productId/variants')
+  addVariant(
+    @Param('productId') productId: string,
+    @Body() body: VariantBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 201, () => this.write.addVariant(productId, body));
+  }
+
+  @RequireScope('products:write')
+  @Patch('products/:productId/variants/:sku')
+  updateVariant(
+    @Param('productId') productId: string,
+    @Param('sku') sku: string,
+    @Body() body: UpdateVariantBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 200, () => this.write.updateVariant(productId, sku, body));
+  }
+
+  /* Customers */
+
+  @RequireScope('customers:write')
+  @Patch('customers/:customerId')
+  updateCustomer(
+    @Param('customerId') customerId: string,
+    @Body() body: UpdateCustomerBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 200, () => this.write.updateCustomer(customerId, body));
+  }
+
+  @RequireScope('customers:write')
+  @Post('customers/:customerId/addresses')
+  addCustomerAddress(
+    @Param('customerId') customerId: string,
+    @Body() body: AddAddressBodyDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 201, () => this.write.addCustomerAddress(customerId, body));
+  }
+
+  @RequireScope('customers:write')
+  @Delete('customers/:customerId/addresses/:addressId')
+  removeCustomerAddress(
+    @Param('customerId') customerId: string,
+    @Param('addressId') addressId: string,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, null, 200, () =>
+      this.write.removeCustomerAddress(customerId, addressId),
+    );
+  }
+
+  /* Refunds */
+
+  @RequireScope('refunds:write')
+  @Post('refunds/:refundNumber/status')
+  @HttpCode(200)
+  setRefundStatus(
+    @Param('refundNumber') refundNumber: string,
+    @Body() body: SetRefundStatusDto,
+    @Req() request: any,
+    @Res({ passthrough: true }) response: any,
+  ) {
+    return this.once(request, response, body, 200, () => this.write.setRefundStatus(refundNumber, body));
   }
 }

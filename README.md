@@ -161,7 +161,7 @@ Customer, delivery address, each line (product code, SKU, name, variant, unit pr
 
 Other systems (an ERP, a courier service, accounting) connect through the Developer API at `/api/v1/developer`. Each system is registered in the admin under **Developers** as an application with its own key (`sg_live_...`) and only the permissions it needs, and can be revoked on its own. The API returns stable business resources identified by their business numbers, with one response shape, machine-readable error codes, cursor pagination and per-application rate limits.
 
-It reads products, categories, inventory, customers, orders, payments, returns and refunds. It writes where a write scope is granted: cancel and move orders, open and move returns, adjust stock. Every write needs an `Idempotency-Key`, goes through the same rules as the admin, and is recorded under the application's name. Webhooks and more writes are planned. Reference: `docs/DEVELOPER_API.md`.
+It reads products, categories, inventory, customers, orders, payments, returns and refunds. It writes where a write scope is granted: create and update products and prices, adjust stock, update customers, cancel and move orders, open and move returns, and record refund outcomes. Every write needs an `Idempotency-Key`, goes through the same rules as the admin, and is recorded under the application's name. Webhooks and more writes are planned. Reference: `docs/DEVELOPER_API.md`.
 
 The **Developers** section of the admin has three parts. *Applications*: create, describe, set a key's lifetime, change permissions, replace a key with a grace period, revoke, and see each application's usage and change history. *Requests*: a log of every request with its status, error code, time taken and request ID, searchable by that ID. *API reference*: every endpoint, scope and error code, drawn from the running API.
 
@@ -337,12 +337,12 @@ Implemented:
 - Order details and change history in the admin
 - District-based delivery charge and one stored phone format
 - Online payment through SSLCOMMERZ, verified end to end in the sandbox on the production deployment
-- Developer API: applications with scoped keys, read access to every commerce resource, and idempotent writes for orders, returns and stock
+- Developer API: applications with scoped keys, and read and idempotent write access to every commerce resource
 
 Remaining launch work includes:
 
 - Live SSLCOMMERZ merchant account and credentials
-- Developer API webhooks, and writes for products, customers and refunds
+- Developer API webhooks
 - Replacing the demo catalog with the merchant's own products and photos
 - Automatic cancellation of online orders whose payment page was abandoned
 - Making checkout safe against a failure half-way through (stock and order are not yet written in one transaction)

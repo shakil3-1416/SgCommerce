@@ -122,9 +122,9 @@ describe('scopes', () => {
   });
 
   it('can only be granted once an endpoint uses them', () => {
-    assert.deepEqual(grantableScopes(), ['products:read', 'inventory:read', 'inventory:write', 'customers:read', 'orders:read', 'orders:write', 'payments:read', 'returns:read', 'returns:write', 'refunds:read']);
-    assert.deepEqual(refusedScopes(['orders:read', 'orders:write', 'payments:read']), []);
-    assert.deepEqual(refusedScopes(['orders:read', 'products:write', 'refunds:write', 'webhooks:manage', 'admin', 7]), ['products:write', 'refunds:write', 'webhooks:manage', 'admin', '7']);
+    assert.deepEqual(grantableScopes(), ['products:read', 'products:write', 'inventory:read', 'inventory:write', 'customers:read', 'customers:write', 'orders:read', 'orders:write', 'payments:read', 'returns:read', 'returns:write', 'refunds:read', 'refunds:write']);
+    assert.deepEqual(refusedScopes(['orders:read', 'orders:write', 'products:write', 'refunds:write']), []);
+    assert.deepEqual(refusedScopes(['orders:read', 'webhooks:manage', 'admin', 7]), ['webhooks:manage', 'admin', '7']);
   });
 });
 
@@ -193,7 +193,8 @@ describe('usage days and logged paths', () => {
 
   it('marks which scopes can change data', () => {
     assert.deepEqual(SCOPES.filter((item) => item.access === 'write').map((item) => item.scope), ['products:write', 'inventory:write', 'customers:write', 'orders:write', 'returns:write', 'refunds:write', 'webhooks:manage']);
-    assert.deepEqual(SCOPES.filter((item) => item.available && item.access === 'write').map((item) => item.scope), ['inventory:write', 'orders:write', 'returns:write'], 'the writes that have endpoints today');
+    assert.deepEqual(SCOPES.filter((item) => item.available && item.access === 'write').map((item) => item.scope), ['products:write', 'inventory:write', 'customers:write', 'orders:write', 'returns:write', 'refunds:write'], 'the writes that have endpoints today');
+    assert.deepEqual(SCOPES.filter((item) => !item.available).map((item) => item.scope), ['webhooks:manage'], 'only webhooks are still to come');
   });
 });
 

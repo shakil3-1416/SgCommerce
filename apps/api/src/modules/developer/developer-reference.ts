@@ -18,7 +18,7 @@ import {
 
 export interface ReferenceEndpoint {
   group: string;
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   /** Relative to the Developer API's base address. */
   path: string;
   /** The scope a key needs; null when any valid key may call it. */
@@ -38,6 +38,10 @@ export const REFERENCE_ENDPOINTS: ReferenceEndpoint[] = [
   { group: 'Catalog', method: 'GET', path: '/products', scope: 'products:read', summary: 'List products.', filters: ['q', 'category', 'brand', 'active'], paged: true },
   { group: 'Catalog', method: 'GET', path: '/products/{productId}', scope: 'products:read', summary: 'One product, by product code (SGP-000217).', filters: [], paged: false },
   { group: 'Catalog', method: 'GET', path: '/categories', scope: 'products:read', summary: 'All categories.', filters: [], paged: false },
+  { group: 'Catalog', method: 'POST', path: '/products', scope: 'products:write', summary: 'Create a product. The server issues the product code and any SKU left out, and opens a stock record for each variant.', filters: [], paged: false, body: ['name', 'category', 'variants[].title', 'variants[].price', 'variants[].sku?', 'variants[].compare_at_price?', 'variants[].attributes?', 'variants[].active?', 'variants[].opening_stock?', 'description?', 'brand?', 'images?', 'active?'] },
+  { group: 'Catalog', method: 'PATCH', path: '/products/{productId}', scope: 'products:write', summary: 'Change a product\'s own fields. Its address (slug) and product code never change.', filters: [], paged: false, body: ['name?', 'description?', 'brand?', 'category?', 'images?', 'active?'] },
+  { group: 'Catalog', method: 'POST', path: '/products/{productId}/variants', scope: 'products:write', summary: 'Add a variant to a product.', filters: [], paged: false, body: ['title', 'price', 'sku?', 'compare_at_price?', 'attributes?', 'active?', 'opening_stock?'] },
+  { group: 'Catalog', method: 'PATCH', path: '/products/{productId}/variants/{sku}', scope: 'products:write', summary: 'Change one variant: title, price, compare-at price (null removes it), attributes, or whether it is on sale. The SKU never changes.', filters: [], paged: false, body: ['title?', 'price?', 'compare_at_price?', 'attributes?', 'active?'] },
 
   { group: 'Inventory', method: 'GET', path: '/inventory', scope: 'inventory:read', summary: 'List stock levels.', filters: ['sku', 'low_stock'], paged: true },
   { group: 'Inventory', method: 'GET', path: '/inventory/{sku}', scope: 'inventory:read', summary: 'Stock of one SKU: on hand, reserved, available.', filters: [], paged: false },
@@ -47,6 +51,9 @@ export const REFERENCE_ENDPOINTS: ReferenceEndpoint[] = [
   { group: 'Customers', method: 'GET', path: '/customers', scope: 'customers:read', summary: 'List customers.', filters: ['phone', 'email'], paged: true },
   { group: 'Customers', method: 'GET', path: '/customers/{customerId}', scope: 'customers:read', summary: 'One customer with saved addresses.', filters: [], paged: false },
   { group: 'Customers', method: 'GET', path: '/customers/{customerId}/orders', scope: 'orders:read', summary: 'The orders of one customer.', filters: [], paged: true },
+  { group: 'Customers', method: 'PATCH', path: '/customers/{customerId}', scope: 'customers:write', summary: 'Change a customer\'s name or email. The phone number identifies the customer and cannot be changed.', filters: [], paged: false, body: ['name?', 'email?'] },
+  { group: 'Customers', method: 'POST', path: '/customers/{customerId}/addresses', scope: 'customers:write', summary: 'Save an address for a customer. The delivery zone follows from the district.', filters: [], paged: false, body: ['label', 'address_line1', 'district', 'address_line2?', 'area?', 'postal_code?', 'is_default?'] },
+  { group: 'Customers', method: 'DELETE', path: '/customers/{customerId}/addresses/{addressId}', scope: 'customers:write', summary: 'Remove a saved address. Orders already placed keep their own copy.', filters: [], paged: false },
 
   { group: 'Orders', method: 'GET', path: '/orders', scope: 'orders:read', summary: 'List orders.', filters: ['status', 'payment_status', 'customer_id', 'phone', 'created_after', 'created_before'], paged: true },
   { group: 'Orders', method: 'GET', path: '/orders/{orderNumber}', scope: 'orders:read', summary: 'One order with its lines, address and history.', filters: [], paged: false },
@@ -63,6 +70,7 @@ export const REFERENCE_ENDPOINTS: ReferenceEndpoint[] = [
 
   { group: 'Refunds', method: 'GET', path: '/refunds', scope: 'refunds:read', summary: 'List refunds.', filters: ['order_id', 'return_id', 'status'], paged: true },
   { group: 'Refunds', method: 'GET', path: '/refunds/{refundNumber}', scope: 'refunds:read', summary: 'One refund.', filters: [], paged: false },
+  { group: 'Refunds', method: 'POST', path: '/refunds/{refundNumber}/status', scope: 'refunds:write', summary: 'Record how a refund turned out: completed, failed, or pending again. It does not send money.', filters: [], paged: false, body: ['status', 'note?', 'expected_status?'] },
 ];
 
 export interface ReferenceError {
@@ -83,7 +91,7 @@ export const REFERENCE_ERRORS: ReferenceError[] = [
   { status: 401, code: 'credential_replaced', meaning: 'The key was replaced and its grace period is over.' },
   { status: 401, code: 'credential_environment_mismatch', meaning: 'A test key on the live API, or the reverse.' },
   { status: 403, code: 'insufficient_scope', meaning: 'The key lacks the scope named in details.required_scope.' },
-  { status: 404, code: '{resource}_not_found', meaning: 'No such record: product, category, inventory, customer, order, payment, return or refund.' },
+  { status: 404, code: '{resource}_not_found', meaning: 'No such record: product, variant, category, inventory, customer, address, order, payment, return or refund.' },
   { status: 409, code: 'idempotency_conflict', meaning: 'The Idempotency-Key was already used for a different request.' },
   { status: 409, code: 'idempotency_in_progress', meaning: 'The first request with this key is still being handled; retry shortly.' },
   { status: 409, code: 'state_conflict', meaning: 'The record is not in the status given as expected_status; details has the current one.' },
@@ -93,7 +101,9 @@ export const REFERENCE_ERRORS: ReferenceError[] = [
   { status: 409, code: 'return_not_eligible', meaning: 'The order is not delivered yet (409), or an item is not part of it (422).' },
   { status: 409, code: 'return_quantity_exceeded', meaning: 'More units than remain eligible for return.' },
   { status: 409, code: 'insufficient_inventory', meaning: 'Not enough available stock for the adjustment.' },
+  { status: 409, code: 'sku_conflict', meaning: 'A SKU in the request is already used by another product.' },
   { status: 409, code: 'resource_busy', meaning: 'The record is being changed by someone else; retry shortly.' },
+  { status: 422, code: 'category_not_found', meaning: 'The category named in the body does not exist.' },
   { status: 422, code: 'validation_failed', meaning: 'A parameter is not valid; details lists what.' },
   { status: 429, code: 'rate_limit_exceeded', meaning: 'Too many requests; wait for the time in Retry-After.' },
   { status: 500, code: 'internal_error', meaning: 'A fault on our side; report the request id.' },

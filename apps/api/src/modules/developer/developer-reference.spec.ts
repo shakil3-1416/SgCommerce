@@ -20,7 +20,7 @@ function controllerRoutes(): Array<{ method: string; path: string; scope: string
 
     for (const line of source.split('\n')) {
       const required = /@RequireScope\('([^']+)'\)/.exec(line);
-      const route = /@(Get|Post)\((?:'([^']*)')?\)/.exec(line);
+      const route = /@(Get|Post|Patch|Delete)\((?:'([^']*)')?\)/.exec(line);
 
       if (required) {
         scope = required[1] ?? null;
@@ -43,7 +43,7 @@ describe('the reference', () => {
     const declared = controllerRoutes().map((route) => `${route.method} ${route.path} [${route.scope ?? 'any key'}]`).sort();
     const documented = REFERENCE_ENDPOINTS.map((endpoint) => `${endpoint.method} ${endpoint.path} [${endpoint.scope ?? 'any key'}]`).sort();
 
-    assert.ok(declared.length >= 23, 'the controller sources were read');
+    assert.ok(declared.length >= 31, 'the controller sources were read');
     assert.deepEqual(documented, declared);
   });
 
@@ -75,10 +75,25 @@ describe('the reference', () => {
   });
 
   it('every write needs a write scope and says what its body takes; no read has a body', () => {
-    const writes = REFERENCE_ENDPOINTS.filter((endpoint) => endpoint.method === 'POST');
+    const writes = REFERENCE_ENDPOINTS.filter((endpoint) => endpoint.method !== 'GET');
 
-    assert.deepEqual(writes.map((endpoint) => endpoint.path).sort(), ['/inventory/{sku}/adjustments', '/orders/{orderNumber}/cancel', '/orders/{orderNumber}/status', '/returns', '/returns/{returnNumber}/status']);
-    assert.ok(writes.every((endpoint) => endpoint.scope?.endsWith(':write') && (endpoint.body ?? []).length > 0));
+    assert.deepEqual(writes.map((endpoint) => `${endpoint.method} ${endpoint.path}`).sort(), [
+      'DELETE /customers/{customerId}/addresses/{addressId}',
+      'PATCH /customers/{customerId}',
+      'PATCH /products/{productId}',
+      'PATCH /products/{productId}/variants/{sku}',
+      'POST /customers/{customerId}/addresses',
+      'POST /inventory/{sku}/adjustments',
+      'POST /orders/{orderNumber}/cancel',
+      'POST /orders/{orderNumber}/status',
+      'POST /products',
+      'POST /products/{productId}/variants',
+      'POST /refunds/{refundNumber}/status',
+      'POST /returns',
+      'POST /returns/{returnNumber}/status',
+    ]);
+    assert.ok(writes.every((endpoint) => endpoint.scope?.endsWith(':write')));
+    assert.ok(writes.filter((endpoint) => endpoint.method !== 'DELETE').every((endpoint) => (endpoint.body ?? []).length > 0));
     assert.ok(REFERENCE_ENDPOINTS.filter((endpoint) => endpoint.method === 'GET').every((endpoint) => endpoint.body === undefined && !endpoint.scope?.endsWith(':write')));
   });
 });

@@ -55,18 +55,18 @@ export interface ScopeDefinition {
 
 export const SCOPES: readonly ScopeDefinition[] = [
   { scope: 'products:read', group: 'Catalog', access: 'read', allows: 'Read products, variants and categories', available: true },
-  { scope: 'products:write', group: 'Catalog', access: 'write', allows: 'Create and update products', available: false },
+  { scope: 'products:write', group: 'Catalog', access: 'write', allows: 'Create and update products, variants and prices', available: true },
   { scope: 'inventory:read', group: 'Inventory', access: 'read', allows: 'Read stock levels and stock movements', available: true },
   { scope: 'inventory:write', group: 'Inventory', access: 'write', allows: 'Change stock', available: true },
   { scope: 'customers:read', group: 'Customers', access: 'read', allows: 'Read customers and their addresses', available: true },
-  { scope: 'customers:write', group: 'Customers', access: 'write', allows: 'Update customer profiles', available: false },
+  { scope: 'customers:write', group: 'Customers', access: 'write', allows: 'Update customer names, emails and saved addresses', available: true },
   { scope: 'orders:read', group: 'Orders', access: 'read', allows: 'Read orders, their lines and history', available: true },
   { scope: 'orders:write', group: 'Orders', access: 'write', allows: 'Cancel orders and change their status', available: true },
   { scope: 'payments:read', group: 'Payments', access: 'read', allows: 'Read the state of payments', available: true },
   { scope: 'returns:read', group: 'Returns', access: 'read', allows: 'Read returns', available: true },
   { scope: 'returns:write', group: 'Returns', access: 'write', allows: 'Create and manage returns', available: true },
   { scope: 'refunds:read', group: 'Refunds', access: 'read', allows: 'Read the state of refunds', available: true },
-  { scope: 'refunds:write', group: 'Refunds', access: 'write', allows: 'Refund operations', available: false },
+  { scope: 'refunds:write', group: 'Refunds', access: 'write', allows: 'Record the outcome of a refund (does not move money)', available: true },
   { scope: 'webhooks:manage', group: 'Platform', access: 'write', allows: 'Configure webhook subscriptions', available: false },
 ];
 
