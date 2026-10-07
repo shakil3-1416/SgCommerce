@@ -78,6 +78,11 @@ Production environment:
 - `ENABLE_HSTS=true`
 - `TRUST_PROXY=true`
 
+The Developer API needs no setting on the real shop: keys issued there
+start with `sg_live_`. Set `API_ENVIRONMENT=test` only on a separate
+sandbox deployment that has its own database; keys issued there start
+with `sg_test_` and work only there. See `docs/DEVELOPER_API.md`.
+
 For online payment through SSLCOMMERZ, also set
 `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD` and
 `STOREFRONT_URL=https://<storefront-domain>`, and later

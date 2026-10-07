@@ -128,6 +128,7 @@ The administration application includes:
 - Customer management
 - Return management
 - Refund management
+- Developers: API applications with their keys and permissions, a log of every API request, and the API reference
 
 ## Business Identifiers
 
@@ -161,7 +162,7 @@ Customer, delivery address, each line (product code, SKU, name, variant, unit pr
 
 Other systems (an ERP, a courier service, accounting) connect through the Developer API at `/api/v1/developer`. Each system is registered in the admin under **Developers** as an application with its own key (`sg_live_...`) and only the permissions it needs, and can be revoked on its own. The API returns stable business resources identified by their business numbers, with one response shape, machine-readable error codes, cursor pagination and per-application rate limits.
 
-It reads products, categories, inventory, customers, orders, payments, returns and refunds. It writes where a write scope is granted: create and update products and prices, adjust stock, update customers, cancel and move orders, open and move returns, and record refund outcomes. Every write needs an `Idempotency-Key`, goes through the same rules as the admin, and is recorded under the application's name. Webhooks and more writes are planned. Reference: `docs/DEVELOPER_API.md`.
+It reads products, categories, inventory, customers, orders, payments, returns and refunds. It writes where a write scope is granted: create and update products and prices, adjust stock, update customers, cancel and move orders, open and move returns, and record refund outcomes. Every write needs an `Idempotency-Key`, goes through the same rules as the admin, and is recorded in the request log; a change to an order also appears in its history under the application's name. Webhooks are planned and are the only permission that cannot be granted yet. Reference: `docs/DEVELOPER_API.md`.
 
 The **Developers** section of the admin has three parts. *Applications*: create, describe, set a key's lifetime, change permissions, replace a key with a grace period, revoke, and see each application's usage and change history. *Requests*: a log of every request with its status, error code, time taken and request ID, searchable by that ID. *API reference*: every endpoint, scope and error code, drawn from the running API.
 
@@ -223,7 +224,7 @@ Or everything at once, including the API build:
     pnpm --filter api exec tsx --test ../admin/src/lib/product-images.spec.ts ../admin/src/lib/order-payment.spec.ts ../admin/src/lib/developer-applications.spec.ts
     pnpm --filter api exec tsx --test ../storefront/src/lib/districts.spec.ts ../storefront/src/lib/payments.spec.ts
 
-These cover the identifier formats, the phone and delivery rules, the SSLCOMMERZ request and signature rules, the image upload rules and the payment wording.
+These cover the identifier formats, the phone and delivery rules, the SSLCOMMERZ request and signature rules, the image upload rules, the payment wording, and the Developer API: its keys, scopes, idempotency rules and response shapes, and that its reference lists exactly the endpoints the API declares.
 
 ## Browser E2E
 
@@ -271,6 +272,10 @@ Local production-smoke example:
 
     NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 
+The Developer API for outside systems is under the same address, at `/developer`:
+
+    https://api.example.com/api/v1/developer
+
 ## CORS
 
 Example:
@@ -316,7 +321,7 @@ Expanded shipping integrations are planned for later phases.
 
 SgCommerce currently keeps SupGent integration separate from the standalone commerce runtime.
 
-SupGent integration will be added after the core commerce system is stable in production.
+SupGent integration will be added after the core commerce system is stable in production. It will connect the way any other system does: as an application registered under **Developers**, with its own key and only the permissions it needs. Nothing in the Developer API is specific to SupGent.
 
 ## Current Development Status
 
