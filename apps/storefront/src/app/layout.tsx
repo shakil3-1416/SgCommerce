@@ -44,13 +44,7 @@ export default function RootLayout({
 
         <SiteFooter />
 
-        <Script
-          id="supgent-webchat"
-          src="https://futures-expressed-peas-boring.trycloudflare.com/supgent-widget.js"
-          data-channel="wc__iGus1YrbiKJZCNmr6_PFFjlTZ2ogHCR"
-          data-api-base="https://attempting-observer-keeps-screenshot.trycloudflare.com"
-          strategy="afterInteractive"
-        />
+        <script src="https://futures-expressed-peas-boring.trycloudflare.com/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="https://attempting-observer-keeps-screenshot.trycloudflare.com" async></script>
       </body>
     </html>
   );
