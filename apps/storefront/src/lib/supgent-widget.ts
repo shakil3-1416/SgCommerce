@@ -1,11 +1,14 @@
 import fallback from '../../supgent-widget.config.json';
 
 /**
- * Where the SupGent Web Chat widget loads from. Environment first
- * (NEXT_PUBLIC_SUPGENT_WIDGET_URL, NEXT_PUBLIC_SUPGENT_WIDGET_CHANNEL,
- * NEXT_PUBLIC_SUPGENT_API_BASE); the committed supgent-widget.config.json
- * is the fallback for deployments whose environment is not set yet. All
- * three values are public (a script URL, a public embed id, an API base),
+ * Where the SupGent Web Chat widget loads from.
+ *
+ * Deployment configuration is the environment: NEXT_PUBLIC_SUPGENT_WIDGET_URL,
+ * NEXT_PUBLIC_SUPGENT_WIDGET_CHANNEL and NEXT_PUBLIC_SUPGENT_API_BASE (set in
+ * the hosting project). The committed supgent-widget.config.json is a
+ * DEVELOPMENT/TEST BOOTSTRAP fallback only (it currently points at rotating
+ * local quick tunnels); it is never a production configuration mechanism.
+ * All values are public (a script URL, a public embed id, an API base),
  * never secrets. Without a complete configuration the widget is not loaded.
  */
 export interface SupGentWidgetConfig {
