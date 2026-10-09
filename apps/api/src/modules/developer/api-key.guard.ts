@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { ApiError } from './api-error';
 import { ApiApplicationsService } from './api-applications.service';
+import { LocalWindowLimiter, whenSharedLimiterDown } from './rate-limit-fallback';
 import {
   newRequestId,
   RATE_WINDOW_SECONDS,
@@ -20,6 +21,9 @@ export const REQUIRED_SCOPE = 'sgcommerce_developer_scope';
  * is right only for "who am I".
  */
 export const RequireScope = (scope: string) => SetMetadata(REQUIRED_SCOPE, scope);
+
+/** Per-instance window used only while the shared limiter is unreachable. */
+const localWindow = new LocalWindowLimiter();
 
 /**
  * Guards every route of the Developer API. In order: give the request an
@@ -90,11 +94,20 @@ export class ApiKeyGuard implements CanActivate {
         RATE_WINDOW_SECONDS,
       );
     } catch {
-      /*
-       * The limiter is unavailable. The request is allowed, as the
-       * global limiter in main.ts does in the same situation.
-       */
-      return;
+      // The shared limiter is unreachable: never "no limit" (see rate-limit-fallback.ts).
+      const policy = whenSharedLimiterDown(write);
+
+      if (policy.kind === 'refuse') {
+        response.setHeader('Retry-After', String(policy.retryAfter));
+        throw new ApiError(
+          503,
+          'rate_limiter_unavailable',
+          `Write requests are paused while rate limiting is unavailable. Try again in ${policy.retryAfter} seconds.`,
+        );
+      }
+
+      limit = localWindow.hit(`${write ? 'w' : 'r'}:${appId}`, allowance, RATE_WINDOW_SECONDS);
+      response.setHeader('RateLimit-Policy', 'degraded');
     }
 
     response.setHeader('RateLimit-Limit', String(allowance));
