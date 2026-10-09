@@ -114,6 +114,7 @@ export function ProductPurchasePanel({
     addItem({
       sku: selectedVariant.sku,
       productId: product._id,
+      productCode: product.productCode,
       productSlug:
         product.slug,
       productName:

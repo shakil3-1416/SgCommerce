@@ -180,8 +180,9 @@ export function CartProvider({
   ]);
 
   // SupGent Web Chat reads a cart snapshot when the customer sends a
-  // message. Names, variants and quantities only (no prices): SupGent
-  // treats it as untrusted storefront context.
+  // message: public ids (SKU, product code), names, variants and
+  // quantities only, never prices. SupGent treats it as untrusted
+  // storefront context and re-reads anything it relies on.
   useEffect(() => {
     if (!loaded) {
       return;
@@ -198,7 +199,8 @@ export function CartProvider({
           0,
         ),
         items: items.map((item) => ({
-          product_id: item.productId,
+          sku: item.sku,
+          ...(item.productCode ? { product_code: item.productCode } : {}),
           name: item.productName,
           variant: item.variantTitle,
           quantity: item.quantity,

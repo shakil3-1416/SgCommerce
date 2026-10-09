@@ -17,6 +17,8 @@ export interface ProductVariant {
 
 export interface Product {
   _id: string;
+  /** Public business id (SGP-...), when the API includes it. */
+  productCode?: string;
   name: string;
   slug: string;
   description: string;

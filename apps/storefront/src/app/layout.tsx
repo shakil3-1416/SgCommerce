@@ -4,6 +4,8 @@ import type {
 
 import Script from 'next/script';
 
+import { supgentWidgetConfig } from '@/lib/supgent-widget';
+
 import './globals.css';
 
 import {
@@ -33,6 +35,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const widget = supgentWidgetConfig();
+
   return (
     <html lang="en">
       <body>
@@ -44,12 +48,14 @@ export default function RootLayout({
 
         <SiteFooter />
 
-        <Script
-          src="https://outstanding-markets-clarke-respiratory.trycloudflare.com/supgent-widget.js"
-          data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl"
-          data-api-base="https://twin-silk-boats-creativity.trycloudflare.com"
-          strategy="afterInteractive"
-        />
+        {widget ? (
+          <Script
+            src={widget.scriptUrl}
+            data-channel={widget.channel}
+            data-api-base={widget.apiBase}
+            strategy="afterInteractive"
+          />
+        ) : null}
       </body>
     </html>
   );
