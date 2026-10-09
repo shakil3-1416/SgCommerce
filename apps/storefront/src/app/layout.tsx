@@ -44,7 +44,12 @@ export default function RootLayout({
 
         <SiteFooter />
 
-        <script src="https://futures-expressed-peas-boring.trycloudflare.com/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="https://attempting-observer-keeps-screenshot.trycloudflare.com" async></script>
+        <Script
+          src="https://moms-dating-eyes-rounds.trycloudflare.com/supgent-widget.js"
+          data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl"
+          data-api-base="https://scout-dining-poison-open.trycloudflare.com"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
