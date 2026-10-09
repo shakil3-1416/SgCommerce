@@ -179,6 +179,45 @@ export function CartProvider({
     loaded,
   ]);
 
+  // SupGent Web Chat reads a cart snapshot when the customer sends a
+  // message. Names, variants and quantities only (no prices): SupGent
+  // treats it as untrusted storefront context.
+  useEffect(() => {
+    if (!loaded) {
+      return;
+    }
+
+    const target = window as Window & {
+      supgentStorefrontContext?: () => unknown;
+    };
+
+    const provider = () => ({
+      cart: {
+        item_count: items.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        ),
+        items: items.map((item) => ({
+          product_id: item.productId,
+          name: item.productName,
+          variant: item.variantTitle,
+          quantity: item.quantity,
+        })),
+      },
+    });
+
+    target.supgentStorefrontContext = provider;
+
+    return () => {
+      if (target.supgentStorefrontContext === provider) {
+        delete target.supgentStorefrontContext;
+      }
+    };
+  }, [
+    items,
+    loaded,
+  ]);
+
   const addItem =
     useCallback(
       (
