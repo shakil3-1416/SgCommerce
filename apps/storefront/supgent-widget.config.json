@@ -1,6 +1,6 @@
 {
   "_purpose": "DEVELOPMENT/TEST BOOTSTRAP ONLY. Public values (no secrets). Deployments must set NEXT_PUBLIC_SUPGENT_WIDGET_URL, NEXT_PUBLIC_SUPGENT_WIDGET_CHANNEL and NEXT_PUBLIC_SUPGENT_API_BASE; rotating quick-tunnel URLs here are never a production mechanism.",
-  "scriptUrl": "https://save-advise-success-revision.trycloudflare.com/supgent-widget.js",
+  "scriptUrl": "https://estimated-upon-browsing-homes.trycloudflare.com/supgent-widget.js",
   "channel": "wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl",
-  "apiBase": "https://america-neighborhood-conditions-just.trycloudflare.com"
+  "apiBase": "https://ferry-spider-bra-expert.trycloudflare.com"
 }
