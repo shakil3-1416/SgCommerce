@@ -49,12 +49,7 @@ export default function RootLayout({
         <SiteFooter />
 
         {widget ? (
-          <Script
-            src={widget.scriptUrl}
-            data-channel={widget.channel}
-            data-api-base={widget.apiBase}
-            strategy="afterInteractive"
-          />
+          <script src="http://127.0.0.1:3000/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="http://127.0.0.1:8000" async></script>
         ) : null}
       </body>
     </html>

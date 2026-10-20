@@ -26,6 +26,7 @@
     "dist",
     "node_modules",
     "src/seed.ts",
+    "src/seed-cap14-cert.ts",
     "src/backfill-business-ids.ts"
   ]
 }
