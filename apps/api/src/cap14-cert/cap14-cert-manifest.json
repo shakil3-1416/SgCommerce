@@ -1,0 +1,672 @@
+{
+  "schema": "sgcommerce-cap14-cert-manifest/1",
+  "fixture_version": "cap14-cert-2026-10-18",
+  "currency": "BDT",
+  "database_marker": "cap14_cert",
+  "supgent_return_policy": {
+    "return_window_days": 7,
+    "published_text": "Returns are accepted within 7 days of delivery.",
+    "note": "SGCommerce itself only requires status=delivered; the window is SupGent policy."
+  },
+  "categories": [
+    {
+      "id": "cap14-cert-apparel",
+      "name": "CAP14 Cert Apparel"
+    },
+    {
+      "id": "cap14-cert-electronics",
+      "name": "CAP14 Cert Electronics"
+    },
+    {
+      "id": "cap14-cert-home",
+      "name": "CAP14 Cert Home"
+    }
+  ],
+  "products": [
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-001",
+      "developer_api_id": "CAP14-CERT-PRODUCT-001",
+      "name": "CAP14 Cert Cotton Tee",
+      "slug": "cap14-cert-product-001",
+      "category": "cap14-cert-apparel",
+      "brand": "CAP14Basics",
+      "active": true,
+      "cases": [
+        "multiple_sizes",
+        "multiple_colours",
+        "low_stock_variant"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P001-BLK-S",
+          "title": "Black / S",
+          "attributes": {
+            "color": "Black",
+            "size": "S"
+          },
+          "price": 950,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 25,
+          "reserved": 0,
+          "available": 25,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P001-BLK-M",
+          "title": "Black / M",
+          "attributes": {
+            "color": "Black",
+            "size": "M"
+          },
+          "price": 950,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 20,
+          "reserved": 0,
+          "available": 20,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P001-BLK-L",
+          "title": "Black / L",
+          "attributes": {
+            "color": "Black",
+            "size": "L"
+          },
+          "price": 950,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 2,
+          "reserved": 0,
+          "available": 2,
+          "reorder_level": 5,
+          "low_stock": true,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P001-WHT-M",
+          "title": "White / M",
+          "attributes": {
+            "color": "White",
+            "size": "M"
+          },
+          "price": 990,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 12,
+          "reserved": 0,
+          "available": 12,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        }
+      ]
+    },
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-002",
+      "developer_api_id": "CAP14-CERT-PRODUCT-002",
+      "name": "CAP14 Cert Hoodie",
+      "slug": "cap14-cert-product-002",
+      "category": "cap14-cert-apparel",
+      "brand": "CAP14Basics",
+      "active": true,
+      "cases": [
+        "out_of_stock_variant",
+        "multiple_colours"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P002-GRY-M",
+          "title": "Grey / M",
+          "attributes": {
+            "color": "Grey",
+            "size": "M"
+          },
+          "price": 2450,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 8,
+          "reserved": 0,
+          "available": 8,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P002-GRY-L",
+          "title": "Grey / L",
+          "attributes": {
+            "color": "Grey",
+            "size": "L"
+          },
+          "price": 2450,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 6,
+          "reserved": 0,
+          "available": 6,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P002-NVY-M",
+          "title": "Navy / M",
+          "attributes": {
+            "color": "Navy",
+            "size": "M"
+          },
+          "price": 2450,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 0,
+          "reserved": 0,
+          "available": 0,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": true
+        }
+      ]
+    },
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-003",
+      "developer_api_id": "CAP14-CERT-PRODUCT-003",
+      "name": "CAP14 Cert Wireless Earbuds",
+      "slug": "cap14-cert-product-003",
+      "category": "cap14-cert-electronics",
+      "brand": "CAP14Audio",
+      "active": true,
+      "cases": [
+        "second_category"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P003-BLK",
+          "title": "Black",
+          "attributes": {
+            "color": "Black"
+          },
+          "price": 3290,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 15,
+          "reserved": 0,
+          "available": 15,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P003-WHT",
+          "title": "White",
+          "attributes": {
+            "color": "White"
+          },
+          "price": 3290,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 9,
+          "reserved": 0,
+          "available": 9,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        }
+      ]
+    },
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-004",
+      "developer_api_id": "CAP14-CERT-PRODUCT-004",
+      "name": "CAP14 Cert Desk Lamp",
+      "slug": "cap14-cert-product-004",
+      "category": "cap14-cert-home",
+      "brand": "CAP14Home",
+      "active": false,
+      "cases": [
+        "inactive_product"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P004-STD",
+          "title": "Standard",
+          "attributes": {
+            "color": "Matte Black"
+          },
+          "price": 1800,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 10,
+          "reserved": 0,
+          "available": 10,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        }
+      ]
+    },
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-005",
+      "developer_api_id": "CAP14-CERT-PRODUCT-005",
+      "name": "CAP14 Cert Ceramic Mug",
+      "slug": "cap14-cert-product-005",
+      "category": "cap14-cert-home",
+      "brand": "CAP14Home",
+      "active": true,
+      "cases": [
+        "similar_variants",
+        "third_category"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P005-BLU-350",
+          "title": "Blue / 350 ml",
+          "attributes": {
+            "color": "Blue",
+            "capacity": "350 ml"
+          },
+          "price": 450,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 30,
+          "reserved": 0,
+          "available": 30,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P005-BLU-450",
+          "title": "Blue / 450 ml",
+          "attributes": {
+            "color": "Blue",
+            "capacity": "450 ml"
+          },
+          "price": 520,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 30,
+          "reserved": 0,
+          "available": 30,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P005-NVY-350",
+          "title": "Navy / 350 ml",
+          "attributes": {
+            "color": "Navy",
+            "capacity": "350 ml"
+          },
+          "price": 450,
+          "compare_at_price": null,
+          "active": true,
+          "on_hand": 30,
+          "reserved": 0,
+          "available": 30,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        }
+      ]
+    },
+    {
+      "product_ref": "CAP14-CERT-PRODUCT-006",
+      "developer_api_id": "CAP14-CERT-PRODUCT-006",
+      "name": "CAP14 Cert Running Shoes",
+      "slug": "cap14-cert-product-006",
+      "category": "cap14-cert-apparel",
+      "brand": "CAP14Sport",
+      "active": true,
+      "cases": [
+        "compare_at_price",
+        "multiple_sizes"
+      ],
+      "variants": [
+        {
+          "sku": "CAP14-CERT-P006-BLK-40",
+          "title": "Black / 40",
+          "attributes": {
+            "color": "Black",
+            "size": "40"
+          },
+          "price": 4200,
+          "compare_at_price": 4800,
+          "active": true,
+          "on_hand": 5,
+          "reserved": 0,
+          "available": 5,
+          "reorder_level": 5,
+          "low_stock": true,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P006-BLK-41",
+          "title": "Black / 41",
+          "attributes": {
+            "color": "Black",
+            "size": "41"
+          },
+          "price": 4200,
+          "compare_at_price": 4800,
+          "active": true,
+          "on_hand": 7,
+          "reserved": 0,
+          "available": 7,
+          "reorder_level": 5,
+          "low_stock": false,
+          "out_of_stock": false
+        },
+        {
+          "sku": "CAP14-CERT-P006-BLK-42",
+          "title": "Black / 42",
+          "attributes": {
+            "color": "Black",
+            "size": "42"
+          },
+          "price": 4200,
+          "compare_at_price": 4800,
+          "active": true,
+          "on_hand": 4,
+          "reserved": 0,
+          "available": 4,
+          "reorder_level": 5,
+          "low_stock": true,
+          "out_of_stock": false
+        }
+      ]
+    }
+  ],
+  "customers": [
+    {
+      "customer_ref": "CAP14-CERT-CUSTOMER-001",
+      "developer_api_id": "cus_ed8018055a8a64bb91b1359e",
+      "name": "CAP14 Cert Customer 001",
+      "email": "cap14-cert-customer-001@example.com",
+      "phone": "000140000001",
+      "order_refs": [
+        "CAP14-CERT-ORDER-001",
+        "CAP14-CERT-ORDER-002",
+        "CAP14-CERT-ORDER-004",
+        "CAP14-CERT-ORDER-006"
+      ]
+    },
+    {
+      "customer_ref": "CAP14-CERT-CUSTOMER-002",
+      "developer_api_id": "cus_ffcff3b66f364e2616fe0376",
+      "name": "CAP14 Cert Customer 002",
+      "email": "cap14-cert-customer-002@example.com",
+      "phone": "000140000002",
+      "order_refs": [
+        "CAP14-CERT-ORDER-003",
+        "CAP14-CERT-ORDER-005"
+      ]
+    },
+    {
+      "customer_ref": "CAP14-CERT-CUSTOMER-003",
+      "developer_api_id": "cus_fb9077ff4434f5dc01f2839d",
+      "name": "CAP14 Cert Customer 003",
+      "email": "cap14-cert-customer-003@example.com",
+      "phone": "000140000003",
+      "order_refs": [
+        "CAP14-CERT-ORDER-007"
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "order_ref": "CAP14-CERT-ORDER-001",
+      "order_number": "CAP14-CERT-ORDER-001",
+      "customer_ref": "CAP14-CERT-CUSTOMER-001",
+      "customer_email": "cap14-cert-customer-001@example.com",
+      "initial_status": "pending",
+      "payment_method": "cod",
+      "payment_status": "pending",
+      "tracking_number": null,
+      "delivered_days_ago": null,
+      "return_eligible_by_supgent_policy": null,
+      "subtotal": 950,
+      "shipping_fee": 60,
+      "total": 1010,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-001",
+          "sku": "CAP14-CERT-P001-BLK-M",
+          "quantity": 1,
+          "unit_price": 950,
+          "line_total": 950
+        }
+      ],
+      "cases": [
+        "pending",
+        "cod_pending_payment",
+        "ambiguity_customer_001"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-002",
+      "order_number": "CAP14-CERT-ORDER-002",
+      "customer_ref": "CAP14-CERT-CUSTOMER-001",
+      "customer_email": "cap14-cert-customer-001@example.com",
+      "initial_status": "confirmed",
+      "payment_method": "cod",
+      "payment_status": "pending",
+      "tracking_number": null,
+      "delivered_days_ago": null,
+      "return_eligible_by_supgent_policy": null,
+      "subtotal": 3350,
+      "shipping_fee": 60,
+      "total": 3410,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-002",
+          "sku": "CAP14-CERT-P002-GRY-M",
+          "quantity": 1,
+          "unit_price": 2450,
+          "line_total": 2450
+        },
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-005",
+          "sku": "CAP14-CERT-P005-BLU-350",
+          "quantity": 2,
+          "unit_price": 450,
+          "line_total": 900
+        }
+      ],
+      "cases": [
+        "confirmed",
+        "multiple_items",
+        "ambiguity_customer_001"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-003",
+      "order_number": "CAP14-CERT-ORDER-003",
+      "customer_ref": "CAP14-CERT-CUSTOMER-002",
+      "customer_email": "cap14-cert-customer-002@example.com",
+      "initial_status": "cancelled",
+      "payment_method": "cod",
+      "payment_status": "cancelled",
+      "tracking_number": null,
+      "delivered_days_ago": null,
+      "return_eligible_by_supgent_policy": null,
+      "subtotal": 3290,
+      "shipping_fee": 60,
+      "total": 3350,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-003",
+          "sku": "CAP14-CERT-P003-WHT",
+          "quantity": 1,
+          "unit_price": 3290,
+          "line_total": 3290
+        }
+      ],
+      "cases": [
+        "cancelled"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-004",
+      "order_number": "CAP14-CERT-ORDER-004",
+      "customer_ref": "CAP14-CERT-CUSTOMER-001",
+      "customer_email": "cap14-cert-customer-001@example.com",
+      "initial_status": "delivered",
+      "payment_method": "cod",
+      "payment_status": "paid",
+      "tracking_number": null,
+      "delivered_days_ago": 2,
+      "return_eligible_by_supgent_policy": true,
+      "subtotal": 4200,
+      "shipping_fee": 60,
+      "total": 4260,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-006",
+          "sku": "CAP14-CERT-P006-BLK-41",
+          "quantity": 1,
+          "unit_price": 4200,
+          "line_total": 4200
+        }
+      ],
+      "cases": [
+        "delivered_within_return_window",
+        "returnable",
+        "ambiguity_customer_001"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-005",
+      "order_number": "CAP14-CERT-ORDER-005",
+      "customer_ref": "CAP14-CERT-CUSTOMER-002",
+      "customer_email": "cap14-cert-customer-002@example.com",
+      "initial_status": "delivered",
+      "payment_method": "cod",
+      "payment_status": "paid",
+      "tracking_number": null,
+      "delivered_days_ago": 45,
+      "return_eligible_by_supgent_policy": false,
+      "subtotal": 1980,
+      "shipping_fee": 60,
+      "total": 2040,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-001",
+          "sku": "CAP14-CERT-P001-WHT-M",
+          "quantity": 2,
+          "unit_price": 990,
+          "line_total": 1980
+        }
+      ],
+      "cases": [
+        "delivered_outside_return_window",
+        "non_returnable"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-006",
+      "order_number": "CAP14-CERT-ORDER-006",
+      "customer_ref": "CAP14-CERT-CUSTOMER-001",
+      "customer_email": "cap14-cert-customer-001@example.com",
+      "initial_status": "shipped",
+      "payment_method": "cod",
+      "payment_status": "pending",
+      "tracking_number": "CAP14-CERT-TRACK-006",
+      "delivered_days_ago": null,
+      "return_eligible_by_supgent_policy": null,
+      "subtotal": 3290,
+      "shipping_fee": 60,
+      "total": 3350,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-003",
+          "sku": "CAP14-CERT-P003-BLK",
+          "quantity": 1,
+          "unit_price": 3290,
+          "line_total": 3290
+        }
+      ],
+      "cases": [
+        "shipped_with_tracking",
+        "ambiguity_customer_001"
+      ]
+    },
+    {
+      "order_ref": "CAP14-CERT-ORDER-007",
+      "order_number": "CAP14-CERT-ORDER-007",
+      "customer_ref": "CAP14-CERT-CUSTOMER-003",
+      "customer_email": "cap14-cert-customer-003@example.com",
+      "initial_status": "delivered",
+      "payment_method": "sslcommerz",
+      "payment_status": "paid",
+      "tracking_number": null,
+      "delivered_days_ago": 3,
+      "return_eligible_by_supgent_policy": true,
+      "subtotal": 2450,
+      "shipping_fee": 60,
+      "total": 2510,
+      "lines": [
+        {
+          "product_ref": "CAP14-CERT-PRODUCT-002",
+          "sku": "CAP14-CERT-P002-GRY-L",
+          "quantity": 1,
+          "unit_price": 2450,
+          "line_total": 2450
+        }
+      ],
+      "cases": [
+        "sandbox_paid_online",
+        "has_return_and_refund"
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "payment_ref": "CAP14-CERT-PAYMENT-001",
+      "tran_id": "CAP14-CERT-PAYMENT-001",
+      "order_ref": "CAP14-CERT-ORDER-001",
+      "provider": "cod",
+      "status": "started",
+      "sandbox": true,
+      "cases": [
+        "cod_pending"
+      ]
+    },
+    {
+      "payment_ref": "CAP14-CERT-PAYMENT-002",
+      "tran_id": "CAP14-CERT-PAYMENT-002",
+      "order_ref": "CAP14-CERT-ORDER-007",
+      "provider": "sslcommerz",
+      "status": "paid",
+      "sandbox": true,
+      "cases": [
+        "synthetic_paid_sandbox"
+      ]
+    }
+  ],
+  "returns": [
+    {
+      "return_ref": "CAP14-CERT-RETURN-001",
+      "return_number": "CAP14-CERT-RETURN-001",
+      "order_ref": "CAP14-CERT-ORDER-007",
+      "sku": "CAP14-CERT-P002-GRY-L",
+      "quantity": 1,
+      "status": "approved"
+    }
+  ],
+  "refunds": [
+    {
+      "refund_ref": "CAP14-CERT-REFUND-001",
+      "refund_number": "CAP14-CERT-REFUND-001",
+      "return_ref": "CAP14-CERT-RETURN-001",
+      "method": "manual",
+      "status": "pending",
+      "moves_money": false
+    }
+  ]
+}
