@@ -49,7 +49,7 @@ export default function RootLayout({
         <SiteFooter />
 
         {widget ? (
-          <script src="https://supposed-enlarge-its-investigator.trycloudflare.com/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="https://rebates-testimony-number-walt.trycloudflare.com" async></script>
+          <script src="https://missile-wichita-competitors-vacations.trycloudflare.com/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="https://interfaces-var-numeric-associate.trycloudflare.com" async></script>
         ) : null}
       </body>
     </html>
