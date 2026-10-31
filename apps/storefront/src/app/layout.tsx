@@ -49,7 +49,7 @@ export default function RootLayout({
         <SiteFooter />
 
         {widget ? (
-          <script src="https://lynn-specifies-keen-mall.trycloudflare.com/supgent-widget.js" data-channel="wc_6qX5tXuLYX8P4Ta5YvNMrUpzHAOBZ3jl" data-api-base="https://automated-gaps-mathematical-resolve.trycloudflare.com" async></script>
+          <script src="https://dashboard-dev.supgent.com/supgent-widget.js" data-channel="wc_nxpUD6xa6eULtyQ3IxpqkDxG12c9tBUN" data-api-base="https://api-dev.supgent.com" async></script>
         ) : null}
       </body>
     </html>
